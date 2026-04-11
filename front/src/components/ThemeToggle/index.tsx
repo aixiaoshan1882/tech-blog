@@ -1,7 +1,7 @@
 import { useDarkMode } from '@/hooks/useDarkMode'
 
 export default function ThemeToggle() {
-  const { theme, isDark, toggleTheme } = useDarkMode()
+  const { theme, toggleTheme } = useDarkMode()
 
   const icons = {
     light: '☀️',

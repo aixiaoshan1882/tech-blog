@@ -46,6 +46,11 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
+                <Link to="/about" className="text-gray-400 hover:text-white transition-colors">
+                  关于
+                </Link>
+              </li>
+              <li>
                 <Link to="/category/frontend" className="text-gray-400 hover:text-white transition-colors">
                   前端开发
                 </Link>

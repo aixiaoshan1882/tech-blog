@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Layout from '@/components/Layout/Layout'
 import Home from '@/pages/Home'
+import About from '@/pages/About'
 import Post from '@/pages/Post'
 import Category from '@/pages/Category'
 import Tag from '@/pages/Tag'
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="search" element={<Search />} />
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
+          <Route path="about" element={<About />} />
         </Route>
 
         {/* 后台管理 */}
