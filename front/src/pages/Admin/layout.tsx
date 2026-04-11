@@ -17,6 +17,8 @@ const navItems = [
   { path: '/admin/users', label: '用户管理', icon: '👥' },
   { path: '/admin/logs', label: '操作日志', icon: '📋' },
   { path: '/admin/api-docs', label: 'API 文档', icon: '📖' },
+  { path: '/admin/analytics', label: '数据分析', icon: '📈' },
+  { path: '/admin/settings', label: '网站设置', icon: '⚙️' },
 ]
 
 export default function AdminLayout() {

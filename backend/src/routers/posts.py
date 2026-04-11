@@ -966,3 +966,34 @@ async def publish_now(request: Request, id: int) -> dict:
     cache.clear_pattern("posts:*")
     
     return {"code": 200, "msg": "文章已立即发布"}
+
+
+@router.get("/top")
+async def get_top_posts(period: str = Query(default="views", regex="^(views|likes|comments)$")) -> dict:
+    """获取热门文章排行"""
+    order_column = {
+        "views": "view_count",
+        "likes": "like_count",
+        "comments": "comment_count",
+    }.get(period, "view_count")
+    
+    # 获取热门文章
+    posts = await db.select(
+        f"""
+        SELECT p.id, p.title, p.slug, p.view_count, p.like_count,
+               (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) as comment_count
+        FROM posts p
+        WHERE p.is_public = 1 AND p.deleted_at IS NULL
+        ORDER BY {order_column} DESC
+        LIMIT 20
+        """,
+        []
+    )
+    
+    return {
+        "code": 200,
+        "data": {
+            "posts": posts,
+            "period": period,
+        },
+    }

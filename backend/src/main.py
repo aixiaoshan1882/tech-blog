@@ -112,6 +112,47 @@ async def health_check():
     }
 
 
+@app.get("/api/system/status")
+async def system_status():
+    """系统状态"""
+    import os
+    import psutil
+    
+    # 数据库状态
+    db_size = 0
+    try:
+        db_path = "tech-blog.db"
+        if os.path.exists(db_path):
+            db_size = os.path.getsize(db_path)
+    except:
+        pass
+    
+    # 获取统计数据
+    posts_count = await db.first("SELECT COUNT(*) as c FROM posts WHERE is_public = 1")
+    users_count = await db.first("SELECT COUNT(*) as c FROM users")
+    comments_count = await db.first("SELECT COUNT(*) as c FROM comments")
+    
+    return {
+        "code": 200,
+        "data": {
+            "uptime": os.times().elapsed if hasattr(os.times(), 'elapsed') else 0,
+            "database": {
+                "size_bytes": db_size,
+                "size_mb": round(db_size / (1024 * 1024), 2),
+            },
+            "counts": {
+                "posts": posts_count["c"] if posts_count else 0,
+                "users": users_count["c"] if users_count else 0,
+                "comments": comments_count["c"] if comments_count else 0,
+            },
+            "platform": {
+                "os": os.name,
+                "python_version": os.sys.version.split()[0] if hasattr(os.sys, 'version') else 'unknown',
+            },
+        },
+    }
+
+
 @app.get("/api/info")
 async def api_info():
     """API 信息"""

@@ -1,5 +1,6 @@
 """统计路由"""
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
+from datetime import datetime, timedelta
 from ..database import db
 
 router = APIRouter(prefix="/stats", tags=["统计"])
@@ -36,5 +37,48 @@ async def get_stats() -> dict:
             "totalComments": total_comments,
             "totalCategories": total_categories,
             "totalTags": total_tags,
+        },
+    }
+
+
+@router.get("/trends")
+async def get_trends(period: int = Query(default=30, ge=7, le=90)) -> dict:
+    """获取趋势数据"""
+    days = []
+    for i in range(period):
+        date = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
+        next_date = (datetime.now() - timedelta(days=i-1)).strftime("%Y-%m-%d") if i > 0 else None
+        
+        # 当天新增文章
+        posts_count = await db.first(
+            "SELECT COUNT(*) as count FROM posts WHERE DATE(created_at) = ?",
+            [date]
+        )
+        
+        # 当天新增评论
+        comments_count = await db.first(
+            "SELECT COUNT(*) as count FROM comments WHERE DATE(created_at) = ?",
+            [date]
+        )
+        
+        # 当天总浏览量（使用 post_stats 或累计）
+        views_count = await db.first(
+            "SELECT SUM(view_count) as total FROM posts WHERE DATE(updated_at) = ?",
+            [date]
+        )
+        
+        days.append({
+            "date": date,
+            "views": views_count["total"] if views_count and views_count["total"] else 0,
+            "posts": posts_count["count"] if posts_count else 0,
+            "comments": comments_count["count"] if comments_count else 0,
+        })
+    
+    days.reverse()
+    return {
+        "code": 200,
+        "data": {
+            "daily": days,
+            "period": period,
         },
     }

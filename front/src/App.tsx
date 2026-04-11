@@ -20,6 +20,8 @@ import AnnouncementManage from '@/pages/Admin/AnnouncementManage'
 import LogManage from '@/pages/Admin/LogManage'
 import TrashManage from '@/pages/Admin/TrashManage'
 import APIDocs from '@/pages/Admin/APIDocs'
+import Analytics from '@/pages/Admin/Analytics'
+import Settings from '@/pages/Admin/Settings'
 
 export default function App() {
   return (
@@ -58,6 +60,8 @@ export default function App() {
           <Route path="trash" element={<TrashManage />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="api-docs" element={<APIDocs />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
 
         {/* 404 */}
