@@ -128,6 +128,7 @@ export default function Header() {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
                     🔍
                   </span>
+                  <kbd className="hidden lg:inline absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-xs text-gray-400 bg-gray-100 dark:bg-gray-700 rounded">Ctrl+K</kbd>
                 </div>
               </form>
 

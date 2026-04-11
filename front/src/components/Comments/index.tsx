@@ -12,7 +12,6 @@ import 'dayjs/locale/zh-cn'
 
 dayjs.locale('zh-cn')
 
-const MIN_COMMENT_LENGTH = 2
 const MAX_COMMENT_LENGTH = 2000
 
 interface CommentsProps {
@@ -44,10 +43,6 @@ export function Comments({ postId }: CommentsProps) {
     // 清除错误
     if (error) setError('')
   }, [error])
-  
-  // 验证评论格式
-  const validation = isValidComment(content)
-  const isValid = validation.valid
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -31,7 +31,7 @@ interface Stats {
   totalTags: number
 }
 
-// 分类图标映射
+// 分类图标和颜色映射
 const categoryIcons: Record<string, string> = {
   frontend: '🎨',
   backend: '⚙️',
@@ -41,6 +41,17 @@ const categoryIcons: Record<string, string> = {
   javascript: '📜',
   react: '⚛️',
   default: '📁',
+}
+
+const categoryGradients: Record<string, string> = {
+  frontend: 'from-pink-500 to-rose-500',
+  backend: 'from-blue-500 to-cyan-500',
+  devops: 'from-purple-500 to-indigo-500',
+  ai: 'from-orange-500 to-amber-500',
+  python: 'from-green-500 to-emerald-500',
+  javascript: 'from-yellow-500 to-orange-500',
+  react: 'from-cyan-500 to-blue-500',
+  default: 'from-gray-500 to-slate-500',
 }
 
 function formatDate(dateStr: string) {
@@ -251,14 +262,17 @@ export default function Home() {
             <p className="text-gray-500 mt-2 hidden sm:block">按分类探索你感兴趣的内容</p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-4">
-            {categories.map((cat) => (
+            {categories.map((cat) => {
+              const gradient = categoryGradients[cat.slug] || categoryGradients.default
+              return (
               <Link
                 key={cat.id}
                 to={`/category/${cat.slug}`}
-                className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl sm:rounded-2xl hover:shadow-lg transition-all duration-300 group text-center"
+                className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl sm:rounded-2xl hover:shadow-lg transition-all duration-300 group text-center relative overflow-hidden"
               >
-                <div className="text-3xl sm:text-4xl mb-2 sm:mb-3">
-                  {categoryIcons[cat.slug] || categoryIcons.default}
+                <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-10 transition-opacity`} />
+                <div className={`relative inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br ${gradient} mb-2 sm:mb-3 shadow-lg group-hover:scale-110 transition-transform`}>
+                  <span className="text-2xl sm:text-3xl">{categoryIcons[cat.slug] || categoryIcons.default}</span>
                 </div>
                 <h3 className="font-semibold group-hover:text-blue-600 transition-colors mb-1 text-sm sm:text-base">
                   {cat.name}
@@ -267,7 +281,8 @@ export default function Home() {
                   {cat.post_count} 篇
                 </p>
               </Link>
-            ))}
+              )
+            })}
           </div>
         </div>
       </section>

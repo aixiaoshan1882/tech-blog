@@ -19,6 +19,7 @@ export default function Post() {
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
   const [showShare, setShowShare] = useState(false)
+  const [showBackToTop, setShowBackToTop] = useState(false)
   const shareRef = useRef<HTMLDivElement>(null)
   
   const { data: post, loading, error } = useAsync(
@@ -28,6 +29,19 @@ export default function Post() {
     }),
     [slug]
   )
+  
+  // 滚动监听 - 显示回到顶部按钮
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowBackToTop(window.scrollY > 500)
+    }
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+  
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   // 点击外部关闭分享菜单
   useEffect(() => {
@@ -334,6 +348,17 @@ export default function Post() {
             </div>
           </div>
         </>
+      )}
+      
+      {/* 回到顶部按钮 */}
+      {showBackToTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed right-4 bottom-20 sm:right-6 sm:bottom-6 w-12 h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-all z-40 hover:scale-110 animate-fade-in"
+          title="回到顶部"
+        >
+          <span className="text-xl">↑</span>
+        </button>
       )}
     </article>
   )
