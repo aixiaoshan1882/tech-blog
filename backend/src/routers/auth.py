@@ -126,6 +126,16 @@ async def login(request: Request) -> dict:
 
     # 生成 Token
     token = create_token(user["id"])
+    
+    # 记录登录日志
+    from .logs import create_log, get_client_ip as get_log_client_ip
+    await create_log(
+        user_id=user["id"],
+        action="login",
+        details=f"用户 {email} 登录成功",
+        ip_address=get_log_client_ip(request),
+        user_agent=request.headers.get("User-Agent"),
+    )
 
     return {
         "code": 200,
