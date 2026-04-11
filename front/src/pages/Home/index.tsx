@@ -9,6 +9,7 @@ interface FeaturedPost {
   excerpt: string
   cover?: string
   category_name: string
+  category_slug: string
   author_nickname: string
   view_count: number
   like_count: number
@@ -22,9 +23,44 @@ interface Category {
   post_count: number
 }
 
+interface Stats {
+  totalPosts: number
+  totalViews: number
+  totalComments: number
+  totalCategories: number
+  totalTags: number
+}
+
+// 分类图标映射
+const categoryIcons: Record<string, string> = {
+  frontend: '🎨',
+  backend: '⚙️',
+  devops: '🚀',
+  ai: '🤖',
+  python: '🐍',
+  javascript: '📜',
+  react: '⚛️',
+  default: '📁',
+}
+
+function formatDate(dateStr: string) {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  
+  if (diffDays === 0) return '今天'
+  if (diffDays === 1) return '昨天'
+  if (diffDays < 7) return `${diffDays}天前`
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}周前`
+  return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+}
+
 export default function Home() {
   const [featuredPosts, setFeaturedPosts] = useState<FeaturedPost[]>([])
+  const [latestPosts, setLatestPosts] = useState<FeaturedPost[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -33,12 +69,16 @@ export default function Home() {
 
   const fetchData = async () => {
     try {
-      const [postsRes, categoriesRes] = await Promise.all([
-        api.get('/posts?limit=6') as any,
-        api.get('/categories') as any,
+      const [postsRes, latestRes, categoriesRes, statsRes] = await Promise.all([
+        api.get('/posts?limit=6') as Promise<any>,
+        api.get('/posts/latest?limit=5') as Promise<any>,
+        api.get('/categories') as Promise<any>,
+        api.get('/stats') as Promise<any>,
       ])
       setFeaturedPosts(postsRes.data.items)
+      setLatestPosts(latestRes.data)
       setCategories(categoriesRes.data.slice(0, 8))
+      setStats(statsRes.data)
     } catch (error) {
       console.error('获取数据失败', error)
     }
@@ -49,8 +89,8 @@ export default function Home() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-500">加载中...</p>
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-500 dark:text-gray-400">加载中...</p>
         </div>
       </div>
     )
@@ -59,74 +99,142 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-blue-600 to-purple-700 text-white py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-6">
-            🚀 技术笔记博客
-          </h1>
-          <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-            分享技术心得与实战经验，记录成长的每一步
-          </p>
-          <div className="flex justify-center gap-4">
-            <Link
-              to="/search"
-              className="px-6 py-3 bg-white text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition-colors"
-            >
-              探索文章
-            </Link>
-            <Link
-              to="/register"
-              className="px-6 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-400 transition-colors"
-            >
-              加入我们
-            </Link>
+      <section className="relative bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 text-white overflow-hidden">
+        {/* 背景装饰 */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-20 left-10 w-72 h-72 bg-white rounded-full blur-3xl" />
+          <div className="absolute bottom-10 right-10 w-96 h-96 bg-pink-400 rounded-full blur-3xl" />
+        </div>
+        
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+          <div className="text-center">
+            <h1 className="text-5xl md:text-6xl font-bold mb-6 animate-fade-in">
+              💻 技术笔记博客
+            </h1>
+            <p className="text-xl text-blue-100 mb-10 max-w-2xl mx-auto leading-relaxed">
+              分享技术心得与实战经验，记录成长的每一步
+            </p>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Link
+                to="/search"
+                className="px-8 py-4 bg-white text-blue-600 rounded-xl font-semibold hover:bg-blue-50 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+              >
+                🔍 探索文章
+              </Link>
+              <Link
+                to="/register"
+                className="px-8 py-4 bg-blue-500 bg-opacity-20 backdrop-blur-sm text-white rounded-xl font-semibold border border-white border-opacity-30 hover:bg-opacity-30 transition-all duration-300"
+              >
+                ✨ 加入我们
+              </Link>
+            </div>
           </div>
+        </div>
+        
+        {/* 底部波浪 */}
+        <div className="absolute bottom-0 left-0 right-0">
+          <svg viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 120L60 110C120 100 240 80 360 70C480 60 600 60 720 65C840 70 960 80 1080 85C1200 90 1320 90 1380 90L1440 90V120H1380C1320 120 1200 120 1080 120C960 120 840 120 720 120C600 120 480 120 360 120C240 120 120 120 60 120H0Z" className="fill-gray-50 dark:fill-gray-900"/>
+          </svg>
         </div>
       </section>
 
+      {/* Stats Section */}
+      {stats && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-10">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center p-4">
+              <div className="text-3xl md:text-4xl font-bold text-blue-600">{stats.totalPosts}</div>
+              <div className="text-sm text-gray-500 mt-1">📝 文章</div>
+            </div>
+            <div className="text-center p-4 border-l border-gray-200 dark:border-gray-700">
+              <div className="text-3xl md:text-4xl font-bold text-green-600">{stats.totalViews}</div>
+              <div className="text-sm text-gray-500 mt-1">👁 阅读</div>
+            </div>
+            <div className="text-center p-4 border-l border-gray-200 dark:border-gray-700">
+              <div className="text-3xl md:text-4xl font-bold text-purple-600">{stats.totalComments}</div>
+              <div className="text-sm text-gray-500 mt-1">💬 评论</div>
+            </div>
+            <div className="text-center p-4 border-l border-gray-200 dark:border-gray-700">
+              <div className="text-3xl md:text-4xl font-bold text-orange-600">{stats.totalCategories + stats.totalTags}</div>
+              <div className="text-sm text-gray-500 mt-1">🏷️ 标签</div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Featured Posts */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl font-bold">📌 最新文章</h2>
-          <Link to="/search" className="text-blue-600 hover:text-blue-700">
+          <div>
+            <h2 className="text-2xl font-bold">✨ 最新文章</h2>
+            <p className="text-gray-500 mt-1">发现最新最热门的技术内容</p>
+          </div>
+          <Link 
+            to="/search" 
+            className="px-4 py-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+          >
             查看全部 →
           </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {featuredPosts.map((post) => (
+          {featuredPosts.map((post, index) => (
             <article
               key={post.id}
-              className="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden hover:shadow-lg transition-shadow"
+              className="group bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2"
+              style={{ animationDelay: `${index * 100}ms` }}
             >
-              {post.cover && (
-                <Link to={`/post/${post.slug}`}>
-                  <img
-                    src={post.cover}
-                    alt={post.title}
-                    className="w-full h-48 object-cover"
-                  />
+              {post.cover ? (
+                <Link to={`/post/${post.slug}`} className="block">
+                  <div className="relative overflow-hidden">
+                    <img
+                      src={post.cover}
+                      alt={post.title}
+                      className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
                 </Link>
+              ) : (
+                <div className="h-48 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                  <span className="text-6xl opacity-50">📝</span>
+                </div>
               )}
               <div className="p-5">
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded">
+                  <Link 
+                    to={`/category/${post.category_slug}`}
+                    className="px-3 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 rounded-full hover:bg-blue-200 transition-colors"
+                  >
                     {post.category_name}
+                  </Link>
+                  <span className="text-xs text-gray-400">
+                    {formatDate(post.created_at)}
                   </span>
                 </div>
                 <Link to={`/post/${post.slug}`}>
-                  <h3 className="text-lg font-bold mb-2 hover:text-blue-600 transition-colors">
+                  <h3 className="text-lg font-bold mb-2 group-hover:text-blue-600 transition-colors line-clamp-2">
                     {post.title}
                   </h3>
                 </Link>
                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">
                   {post.excerpt || '暂无摘要...'}
                 </p>
-                <div className="flex items-center justify-between text-sm text-gray-500">
-                  <span>{post.author_nickname}</span>
-                  <div className="flex items-center gap-4">
-                    <span>👁 {post.view_count}</span>
-                    <span>❤️ {post.like_count}</span>
+                <div className="flex items-center justify-between text-sm text-gray-500 pt-4 border-t border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white text-xs">
+                      {post.author_nickname[0]}
+                    </div>
+                    <span>{post.author_nickname}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1">
+                      👁 {post.view_count}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      ❤️ {post.like_count}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -136,21 +244,27 @@ export default function Home() {
       </section>
 
       {/* Categories */}
-      <section className="bg-gray-50 dark:bg-gray-900 py-12">
+      <section className="bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-indigo-900 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl font-bold mb-8">📂 分类浏览</h2>
+          <div className="text-center mb-10">
+            <h2 className="text-2xl font-bold">📂 分类浏览</h2>
+            <p className="text-gray-500 mt-2">按分类探索你感兴趣的内容</p>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {categories.map((cat) => (
               <Link
                 key={cat.id}
                 to={`/category/${cat.slug}`}
-                className="bg-white dark:bg-gray-800 p-4 rounded-lg hover:shadow-md transition-shadow group"
+                className="bg-white dark:bg-gray-800 p-6 rounded-2xl hover:shadow-lg transition-all duration-300 group text-center"
               >
-                <h3 className="font-medium group-hover:text-blue-600 transition-colors">
+                <div className="text-4xl mb-3">
+                  {categoryIcons[cat.slug] || categoryIcons.default}
+                </div>
+                <h3 className="font-semibold group-hover:text-blue-600 transition-colors mb-1">
                   {cat.name}
                 </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  {cat.post_count} 篇文章
+                <p className="text-sm text-gray-500">
+                  {cat.post_count} 篇
                 </p>
               </Link>
             ))}
@@ -158,43 +272,96 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Stats */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl p-8 text-white text-center">
-          <h2 className="text-2xl font-bold mb-6">📊 博客数据</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div>
-              <div className="text-4xl font-bold mb-2">100+</div>
-              <div className="text-blue-100">技术文章</div>
+      {/* Latest Posts Sidebar Style */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Latest Posts */}
+          <div className="lg:col-span-2">
+            <h2 className="text-2xl font-bold mb-6">🕐 最新动态</h2>
+            <div className="space-y-4">
+              {latestPosts.map((post, index) => (
+                <Link
+                  key={post.id}
+                  to={`/post/${post.slug}`}
+                  className="flex gap-4 p-4 bg-white dark:bg-gray-800 rounded-xl hover:shadow-md transition-all duration-300 group"
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold">
+                    {index + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold group-hover:text-blue-600 transition-colors truncate mb-1">
+                      {post.title}
+                    </h3>
+                    <div className="flex items-center gap-3 text-sm text-gray-500">
+                      <span>{post.category_name}</span>
+                      <span>•</span>
+                      <span>{formatDate(post.created_at)}</span>
+                      <span>•</span>
+                      <span>👁 {post.view_count}</span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
             </div>
-            <div>
-              <div className="text-4xl font-bold mb-2">10K+</div>
-              <div className="text-blue-100">总阅读量</div>
+          </div>
+
+          {/* Quick Links */}
+          <div>
+            <h2 className="text-2xl font-bold mb-6">🔗 快捷入口</h2>
+            <div className="space-y-3">
+              <Link
+                to="/search"
+                className="flex items-center gap-3 p-4 bg-white dark:bg-gray-800 rounded-xl hover:shadow-md transition-all group"
+              >
+                <span className="text-2xl">🔍</span>
+                <span className="font-medium group-hover:text-blue-600 transition-colors">搜索文章</span>
+              </Link>
+              <Link
+                to="/register"
+                className="flex items-center gap-3 p-4 bg-white dark:bg-gray-800 rounded-xl hover:shadow-md transition-all group"
+              >
+                <span className="text-2xl">✍️</span>
+                <span className="font-medium group-hover:text-blue-600 transition-colors">成为作者</span>
+              </Link>
+              <Link
+                to="/login"
+                className="flex items-center gap-3 p-4 bg-white dark:bg-gray-800 rounded-xl hover:shadow-md transition-all group"
+              >
+                <span className="text-2xl">🔑</span>
+                <span className="font-medium group-hover:text-blue-600 transition-colors">登录账号</span>
+              </Link>
             </div>
-            <div>
-              <div className="text-4xl font-bold mb-2">1K+</div>
-              <div className="text-blue-100">社区用户</div>
-            </div>
-            <div>
-              <div className="text-4xl font-bold mb-2">50+</div>
-              <div className="text-blue-100">分类标签</div>
+
+            {/* Tags Cloud */}
+            <h3 className="text-xl font-bold mt-8 mb-4">🏷️ 热门标签</h3>
+            <div className="flex flex-wrap gap-2">
+              {['JavaScript', 'Python', 'React', 'TypeScript', 'Docker', 'Git'].map((tag) => (
+                <Link
+                  key={tag}
+                  to={`/tag/${tag.toLowerCase()}`}
+                  className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-sm hover:bg-blue-100 hover:text-blue-600 transition-colors"
+                >
+                  {tag}
+                </Link>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
       {/* CTA */}
-      <section className="bg-gray-900 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-2xl font-bold mb-4">准备好分享你的技术见解了吗？</h2>
-          <p className="text-gray-400 mb-6">
-            加入我们的社区，发表你的第一篇文章
+      <section className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white py-16">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <h2 className="text-3xl font-bold mb-4">准备好分享你的技术见解了吗？ 🚀</h2>
+          <p className="text-blue-100 mb-8 text-lg">
+            加入我们的社区，发表你的第一篇文章，与志同道合的人一起成长
           </p>
           <Link
             to="/register"
-            className="inline-block px-8 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors"
+            className="inline-block px-10 py-4 bg-white text-blue-600 rounded-xl font-semibold hover:bg-blue-50 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
           >
-            开始写作
+            开始写作 ✨
           </Link>
         </div>
       </section>

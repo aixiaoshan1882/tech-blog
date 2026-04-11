@@ -15,6 +15,7 @@ export interface RegisterInput {
   email: string
   password: string
   nickname: string
+  verify_code?: string
 }
 
 export interface AuthResponse {
