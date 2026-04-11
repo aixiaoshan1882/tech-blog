@@ -18,6 +18,7 @@ from .routers import (
     notifications_router,
     logs_router,
     users_router,
+    announcements_router,
 )
 from .utils.auth import decode_token
 from .utils.ratelimit import api_limiter
@@ -90,6 +91,7 @@ app.include_router(stats_router, prefix="/api")
 app.include_router(notifications_router, prefix="/api")
 app.include_router(logs_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
+app.include_router(announcements_router, prefix="/api")
 
 
 @app.get("/api/health")

@@ -567,10 +567,48 @@ async def permanent_delete_post(request: Request, id: int) -> dict:
 @router.post("/{id}/like")
 async def like_post(request: Request, id: int) -> dict:
     """点赞文章"""
+    user_id = getattr(request.state, "user_id", None)
+    
     # 检查文章是否存在且未删除
-    post = await db.first("SELECT id FROM posts WHERE id = ? AND deleted_at IS NULL", [id])
+    post = await db.first(
+        "SELECT id, title, user_id FROM posts WHERE id = ? AND deleted_at IS NULL",
+        [id]
+    )
     if not post:
         raise HTTPException(status_code=404, detail="文章不存在")
+    
+    # 如果已登录，检查是否已经点赞
+    if user_id:
+        existing = await db.first(
+            "SELECT id FROM user_likes WHERE user_id = ? AND post_id = ?",
+            [user_id, id]
+        )
+        if existing:
+            raise HTTPException(status_code=400, detail="已经点赞过了")
+        
+        # 记录点赞
+        await db.execute(
+            "INSERT INTO user_likes (user_id, post_id) VALUES (?, ?)",
+            [user_id, id]
+        )
+        
+        # 发送通知给文章作者
+        if post["user_id"] and post["user_id"] != user_id:
+            liker = await db.first("SELECT nickname FROM users WHERE id = ?", [user_id])
+            liker_name = liker["nickname"] if liker else "某用户"
+            await db.execute(
+                """
+                INSERT INTO notifications (user_id, type, title, content, related_id)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                [
+                    post["user_id"],
+                    "post_like",
+                    f"{liker_name} 点赞了你的文章",
+                    f"《{post['title'][:20]}...》",
+                    id
+                ]
+            )
     
     # 增加点赞数
     await db.execute("UPDATE posts SET like_count = like_count + 1 WHERE id = ?", [id])
@@ -580,3 +618,270 @@ async def like_post(request: Request, id: int) -> dict:
     like_count = post["like_count"] if post else 0
 
     return {"code": 200, "msg": "点赞成功", "data": {"like_count": like_count}}
+
+
+@router.delete("/{id}/like")
+async def unlike_post(request: Request, id: int) -> dict:
+    """取消点赞"""
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="请先登录")
+    
+    # 检查是否已经点赞
+    existing = await db.first(
+        "SELECT id FROM user_likes WHERE user_id = ? AND post_id = ?",
+        [user_id, id]
+    )
+    if not existing:
+        raise HTTPException(status_code=400, detail="还没有点赞")
+    
+    # 删除点赞记录
+    await db.execute(
+        "DELETE FROM user_likes WHERE user_id = ? AND post_id = ?",
+        [user_id, id]
+    )
+    
+    # 减少点赞数
+    await db.execute(
+        "UPDATE posts SET like_count = MAX(0, like_count - 1) WHERE id = ?",
+        [id]
+    )
+    
+    # 获取当前点赞数
+    post = await db.first("SELECT like_count FROM posts WHERE id = ?", [id])
+    like_count = post["like_count"] if post else 0
+
+    return {"code": 200, "msg": "取消点赞成功", "data": {"like_count": like_count}}
+
+
+@router.get("/{id}/like/status")
+async def get_like_status(request: Request, id: int) -> dict:
+    """获取点赞状态"""
+    user_id = getattr(request.state, "user_id", None)
+    
+    liked = False
+    if user_id:
+        existing = await db.first(
+            "SELECT id FROM user_likes WHERE user_id = ? AND post_id = ?",
+            [user_id, id]
+        )
+        liked = existing is not None
+    
+    post = await db.first("SELECT like_count FROM posts WHERE id = ?", [id])
+    like_count = post["like_count"] if post else 0
+    
+    return {
+        "code": 200,
+        "data": {
+            "liked": liked,
+            "like_count": like_count
+        }
+    }
+
+
+@router.get("/{id}/stats")
+async def get_post_stats(request: Request, id: int) -> dict:
+    """获取文章详细统计"""
+    # 检查文章是否存在
+    post = await db.first("SELECT * FROM posts WHERE id = ?", [id])
+    if not post:
+        raise HTTPException(status_code=404, detail="文章不存在")
+    
+    # 获取文章统计
+    stats = await db.first(
+        "SELECT * FROM post_stats WHERE post_id = ?",
+        [id]
+    )
+    
+    # 获取评论数
+    comment_count = await db.first(
+        "SELECT COUNT(*) as count FROM comments WHERE post_id = ?",
+        [id]
+    )
+    
+    return {
+        "code": 200,
+        "data": {
+            "post_id": id,
+            "title": post["title"],
+            "view_count": post["view_count"],
+            "like_count": post["like_count"],
+            "comment_count": comment_count["count"] if comment_count else 0,
+            "unique_views": stats["unique_views"] if stats else 0,
+            "avg_read_time": stats["avg_read_time"] if stats else 0,
+            "share_count": stats["share_count"] if stats else 0,
+        }
+    }
+
+
+@router.get("/rankings")
+async def get_post_rankings(request: Request) -> dict:
+    """获取文章排行榜"""
+    # 获取热门文章（按浏览量）
+    hot_posts = await db.select(
+        """
+        SELECT p.id, p.title, p.slug, p.view_count, p.like_count,
+               c.name as category_name
+        FROM posts p
+        LEFT JOIN categories c ON c.id = p.category_id
+        WHERE p.is_public = 1 AND p.deleted_at IS NULL
+        ORDER BY p.view_count DESC
+        LIMIT 10
+        """
+    )
+    
+    # 获取最受点赞文章
+    most_liked = await db.select(
+        """
+        SELECT p.id, p.title, p.slug, p.like_count,
+               c.name as category_name
+        FROM posts p
+        LEFT JOIN categories c ON c.id = p.category_id
+        WHERE p.is_public = 1 AND p.deleted_at IS NULL
+        ORDER BY p.like_count DESC
+        LIMIT 10
+        """
+    )
+    
+    # 获取最新文章
+    latest_posts = await db.select(
+        """
+        SELECT p.id, p.title, p.slug, p.created_at,
+               c.name as category_name
+        FROM posts p
+        LEFT JOIN categories c ON c.id = p.category_id
+        WHERE p.is_public = 1 AND p.deleted_at IS NULL
+        ORDER BY p.created_at DESC
+        LIMIT 10
+        """
+    )
+    
+    return {
+        "code": 200,
+        "data": {
+            "hot": hot_posts,
+            "most_liked": most_liked,
+            "latest": latest_posts,
+        }
+    }
+
+
+# ============= 收藏功能 =============
+
+@router.post("/{id}/favorite")
+async def add_favorite(request: Request, id: int) -> dict:
+    """收藏文章"""
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="请先登录")
+    
+    # 检查文章是否存在
+    post = await db.first(
+        "SELECT id, title, user_id FROM posts WHERE id = ? AND deleted_at IS NULL",
+        [id]
+    )
+    if not post:
+        raise HTTPException(status_code=404, detail="文章不存在")
+    
+    # 检查是否已经收藏
+    existing = await db.first(
+        "SELECT id FROM user_favorites WHERE user_id = ? AND post_id = ?",
+        [user_id, id]
+    )
+    if existing:
+        raise HTTPException(status_code=400, detail="已经收藏过了")
+    
+    # 添加收藏
+    await db.execute(
+        "INSERT INTO user_favorites (user_id, post_id) VALUES (?, ?)",
+        [user_id, id]
+    )
+    
+    return {"code": 200, "msg": "收藏成功"}
+
+
+@router.delete("/{id}/favorite")
+async def remove_favorite(request: Request, id: int) -> dict:
+    """取消收藏"""
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="请先登录")
+    
+    await db.execute(
+        "DELETE FROM user_favorites WHERE user_id = ? AND post_id = ?",
+        [user_id, id]
+    )
+    
+    return {"code": 200, "msg": "取消收藏成功"}
+
+
+@router.get("/favorites/mine")
+async def get_my_favorites(
+    request: Request,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=50),
+) -> dict:
+    """获取我的收藏列表"""
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="请先登录")
+    
+    offset = (page - 1) * limit
+    
+    favorites = await db.select(
+        """
+        SELECT p.*, c.name as category_name, c.slug as category_slug,
+               uf.created_at as favorited_at
+        FROM user_favorites uf
+        JOIN posts p ON p.id = uf.post_id
+        LEFT JOIN categories c ON c.id = p.category_id
+        WHERE uf.user_id = ? AND p.deleted_at IS NULL
+        ORDER BY uf.created_at DESC
+        LIMIT ? OFFSET ?
+        """,
+        [user_id, limit, offset]
+    )
+    
+    # 获取总数
+    total_result = await db.first(
+        "SELECT COUNT(*) as count FROM user_favorites uf JOIN posts p ON p.id = uf.post_id WHERE uf.user_id = ? AND p.deleted_at IS NULL",
+        [user_id]
+    )
+    total = total_result["count"] if total_result else 0
+    
+    # 获取每篇文章的标签
+    for fav in favorites:
+        tags = await db.select(
+            "SELECT t.* FROM tags t JOIN post_tags pt ON pt.tag_id = t.id WHERE pt.post_id = ?",
+            [fav["id"]],
+        )
+        fav["tags"] = tags
+    
+    return {
+        "code": 200,
+        "data": {
+            "items": favorites,
+            "total": total,
+            "page": page,
+            "limit": limit,
+        },
+    }
+
+
+@router.get("/{id}/favorite/status")
+async def get_favorite_status(request: Request, id: int) -> dict:
+    """获取收藏状态"""
+    user_id = getattr(request.state, "user_id", None)
+    
+    favorited = False
+    if user_id:
+        existing = await db.first(
+            "SELECT id FROM user_favorites WHERE user_id = ? AND post_id = ?",
+            [user_id, id]
+        )
+        favorited = existing is not None
+    
+    return {
+        "code": 200,
+        "data": {"favorited": favorited}
+    }
