@@ -6,6 +6,7 @@ from .tags import router as tags_router
 from .comments import router as comments_router
 from .search import router as search_router
 from .stats import router as stats_router
+from .notifications import router as notifications_router
 
 __all__ = [
     "auth_router",
@@ -15,4 +16,5 @@ __all__ = [
     "comments_router",
     "search_router",
     "stats_router",
+    "notifications_router",
 ]

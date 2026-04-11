@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Request, HTTPException, Query
 from ..database import db
 from ..utils.sanitize import sanitize_html
-from .auth import require_admin
+from .auth import require_admin, get_user_by_id
 
 router = APIRouter(prefix="/comments", tags=["评论"])
 
@@ -76,11 +76,13 @@ async def get_comments(request: Request, slug: str) -> dict:
 async def create_comment(request: Request, slug: str) -> dict:
     """发表评论"""
     # 获取文章ID
-    post = await db.first("SELECT id FROM posts WHERE slug = ?", [slug])
+    post = await db.first("SELECT id, title, user_id FROM posts WHERE slug = ?", [slug])
     if not post:
         raise HTTPException(status_code=404, detail="文章不存在")
 
     post_id = post["id"]
+    post_title = post["title"]
+    post_author_id = post.get("user_id")
 
     body = await request.json()
     nickname = body.get("nickname")
@@ -100,8 +102,85 @@ async def create_comment(request: Request, slug: str) -> dict:
         "INSERT INTO comments (post_id, parent_id, nickname, email, content) VALUES (?, ?, ?, ?, ?)",
         [post_id, parent_id, nickname, email, content],
     )
+    
+    comment_id = result.get("last_row_id")
 
-    return {"code": 200, "msg": "评论成功", "data": {"id": result.get("last_row_id")}}
+    # 创建通知
+    await _create_comment_notification(
+        post_id=post_id,
+        post_title=post_title,
+        post_author_id=post_author_id,
+        comment_id=comment_id,
+        parent_id=parent_id,
+        commenter_nickname=nickname,
+        content=content[:100]
+    )
+
+    return {"code": 200, "msg": "评论成功", "data": {"id": comment_id}}
+
+
+async def _create_comment_notification(
+    post_id: int,
+    post_title: str,
+    post_author_id: int,
+    comment_id: int,
+    parent_id: int,
+    commenter_nickname: str,
+    content: str
+):
+    """创建评论通知"""
+    # 如果是回复评论，通知被回复的人
+    if parent_id > 0:
+        parent_comment = await db.first(
+            "SELECT * FROM comments WHERE id = ?",
+            [parent_id]
+        )
+        if parent_comment and parent_comment.get("email"):
+            # 找到被回复的评论作者（通过 email）
+            parent_author = await db.first(
+                "SELECT id FROM users WHERE email = ?",
+                [parent_comment["email"]]
+            )
+            if parent_author and parent_author["id"] != post_author_id:
+                await db.execute(
+                    """
+                    INSERT INTO notifications (user_id, type, title, content, related_id)
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    [
+                        parent_author["id"],
+                        "comment_reply",
+                        f"{commenter_nickname} 回复了你的评论",
+                        content[:100],
+                        comment_id
+                    ]
+                )
+    
+    # 通知文章作者有新评论
+    if post_author_id:
+        # 检查是否已经通知过（避免重复通知）
+        existing = await db.first(
+            """
+            SELECT id FROM notifications 
+            WHERE user_id = ? AND type = 'new_comment' 
+            AND related_id = ? AND created_at > datetime('now', '-1 minute')
+            """,
+            [post_author_id, comment_id]
+        )
+        if not existing:
+            await db.execute(
+                """
+                INSERT INTO notifications (user_id, type, title, content, related_id)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                [
+                    post_author_id,
+                    "new_comment",
+                    f"{commenter_nickname} 评论了你的文章",
+                    f"《{post_title}》",
+                    comment_id
+                ]
+            )
 
 
 @router.delete("/{id}")
