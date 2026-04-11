@@ -80,7 +80,8 @@ async def auth_middleware(request: Request, call_next):
     return response
 
 
-# 注册路由
+# 注册路由 (所有路由都在 /api 前缀下)
+# 未来可以扩展为 /api/v1 和 /api/v2 实现版本控制
 app.include_router(auth_router, prefix="/api")
 app.include_router(posts_router, prefix="/api")
 app.include_router(categories_router, prefix="/api")
@@ -97,7 +98,35 @@ app.include_router(announcements_router, prefix="/api")
 @app.get("/api/health")
 async def health_check():
     """健康检查"""
-    return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
+    return {
+        "status": "ok",
+        "timestamp": datetime.utcnow().isoformat(),
+        "version": "1.0.0",
+        "api_version": "v1",
+    }
+
+
+@app.get("/api/info")
+async def api_info():
+    """API 信息"""
+    return {
+        "name": "Tech Blog API",
+        "version": "1.0.0",
+        "description": "技术笔记博客后端 API",
+        "endpoints": {
+            "auth": "/api/auth",
+            "posts": "/api/posts",
+            "categories": "/api/categories",
+            "tags": "/api/tags",
+            "comments": "/api/comments",
+            "search": "/api/search",
+            "stats": "/api/stats",
+            "notifications": "/api/notifications",
+            "logs": "/api/logs",
+            "users": "/api/users",
+            "announcements": "/api/announcements",
+        }
+    }
 
 
 # 本地开发服务器
