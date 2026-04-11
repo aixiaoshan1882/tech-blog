@@ -4,11 +4,17 @@ from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 import secrets
 import datetime
+import re
 from ..database import db
 from ..schemas import UserCreate, UserLogin, UserResponse
 from ..utils.auth import hash_password, verify_password, create_token
 from ..utils.sanitize import validate_email, validate_password, sanitize_html
 from ..utils.ratelimit import login_limiter, api_limiter, register_limiter
+from ..utils.captcha import (
+    create_captcha, verify_captcha, 
+    check_ip_register_limit, record_ip_register,
+    is_suspicious_email, generate_register_token, hash_register_token
+)
 
 router = APIRouter(prefix="/auth", tags=["认证"])
 
@@ -44,16 +50,26 @@ async def require_admin(request: Request) -> dict:
 
 @router.post("/register")
 async def register(request: Request) -> dict:
-    """用户注册"""
+    """用户注册（防爬虫版）"""
     client_ip = get_client_ip(request)
     
-    # 注册速率限制
-    allowed, remaining = register_limiter.is_allowed(client_ip)
+    # ========== 防爬虫检查 ==========
+    
+    # 1. IP 注册频率限制（每小时最多3个账号）
+    allowed, remaining = check_ip_register_limit(client_ip, max_registers=3, window_seconds=3600)
+    if not allowed:
+        return JSONResponse(
+            status_code=429,
+            content={"code": 429, "detail": "注册过于频繁，请稍后再试"}
+        )
+    
+    # 2. 注册速率限制
+    allowed, _ = register_limiter.is_allowed(client_ip)
     if not allowed:
         retry_after = register_limiter.get_retry_after(client_ip)
         return JSONResponse(
             status_code=429,
-            content={"detail": f"注册过于频繁，请 {retry_after} 秒后重试"},
+            content={"code": 429, "detail": f"注册过于频繁，请 {retry_after} 秒后重试"},
             headers={"Retry-After": str(retry_after)}
         )
     
@@ -61,25 +77,71 @@ async def register(request: Request) -> dict:
     email = body.get("email")
     password = body.get("password")
     nickname = body.get("nickname")
+    captcha_token = body.get("captcha_token")
+    captcha_answer = body.get("captcha_answer")
 
+    # ========== 参数验证 ==========
+    
     # 验证必填字段
     if not email or not password or not nickname:
         raise HTTPException(status_code=400, detail="缺少必要参数")
-
-    # 验证邮箱格式
+    
+    # 清理并验证邮箱格式
+    email = email.strip().lower()
     if not validate_email(email):
         raise HTTPException(status_code=400, detail="邮箱格式不正确")
+    
+    # 验证昵称（防注入）
+    nickname = sanitize_html(nickname.strip())
+    if len(nickname) < 2 or len(nickname) > 30:
+        raise HTTPException(status_code=400, detail="昵称长度需在2-30个字符之间")
+    
+    # 昵称不能为纯数字
+    if re.match(r'^\d+$', nickname):
+        raise HTTPException(status_code=400, detail="昵称不能为纯数字")
+    
+    # 昵称不能包含敏感词
+    sensitive_words = ['admin', 'root', 'system', '管理员', '超级用户', 'test']
+    if nickname.lower() in sensitive_words or any(sw in nickname.lower() for sw in sensitive_words):
+        raise HTTPException(status_code=400, detail="昵称包含敏感词")
 
     # 验证密码强度
     valid, msg = validate_password(password)
     if not valid:
         raise HTTPException(status_code=400, detail=msg)
-
+    
+    # ========== 验证码检查 ==========
+    
+    # 如果没有验证码 token，要求验证
+    if not captcha_token or not captcha_answer:
+        return JSONResponse(
+            status_code=400,
+            content={"code": 400, "detail": "请完成验证码", "require_captcha": True}
+        )
+    
+    if not verify_captcha(captcha_token, captcha_answer):
+        return JSONResponse(
+            status_code=400,
+            content={"code": 400, "detail": "验证码错误或已过期，请重新验证", "require_captcha": True}
+        )
+    
+    # ========== 邮箱安全检查 ==========
+    
+    # 检查可疑邮箱
+    is_suspicious, reason = is_suspicious_email(email)
+    if is_suspicious:
+        return JSONResponse(
+            status_code=400,
+            content={"code": 400, "detail": reason or "暂不支持该邮箱"}
+        )
+    
     # 检查邮箱是否已注册
     existing = await db.first("SELECT id FROM users WHERE email = ?", [email])
     if existing:
-        raise HTTPException(status_code=400, detail="邮箱已被注册")
+        raise HTTPException(status_code=400, detail="该邮箱已注册，请直接登录")
 
+    # ========== 创建用户 ==========
+    
     # 加密密码
     hashed = hash_password(password)
 
@@ -88,6 +150,9 @@ async def register(request: Request) -> dict:
         "INSERT INTO users (email, password, nickname, role) VALUES (?, ?, ?, ?)",
         [email, hashed, nickname, "reader"]
     )
+    
+    # 记录 IP 注册
+    record_ip_register(client_ip)
 
     # 检查是否为第一个用户(管理员)
     user_count = await db.first("SELECT COUNT(*) as count FROM users")
@@ -101,6 +166,20 @@ async def register(request: Request) -> dict:
         "code": 200,
         "msg": "注册成功",
         "data": {"is_admin": is_admin},
+    }
+
+
+@router.get("/captcha")
+async def get_captcha() -> dict:
+    """获取验证码图片"""
+    captcha = create_captcha()
+    return {
+        "code": 200,
+        "data": {
+            "token": captcha['token'],
+            "question": captcha['question'],
+            "image": captcha['image']
+        }
     }
 
 

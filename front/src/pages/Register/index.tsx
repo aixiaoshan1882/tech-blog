@@ -2,9 +2,9 @@
  * 注册页
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { register, sendVerifyCode } from '@/api/auth'
+import { api } from '@/api'
 
 export default function Register() {
   const navigate = useNavigate()
@@ -12,33 +12,37 @@ export default function Register() {
   const [nickname, setNickname] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [verifyCode, setVerifyCode] = useState('')
   const [loading, setLoading] = useState(false)
-  const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  
+  // 验证码相关
+  const [captchaToken, setCaptchaToken] = useState('')
+  const [captchaQuestion, setCaptchaQuestion] = useState('')
+  const [captchaImage, setCaptchaImage] = useState('')
+  const [captchaAnswer, setCaptchaAnswer] = useState('')
+  const [loadingCaptcha, setLoadingCaptcha] = useState(false)
 
-  const handleSendCode = async () => {
-    if (!email) {
-      setError('请输入邮箱')
-      return
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('请输入有效的邮箱地址')
-      return
-    }
-    setSending(true)
+  // 加载验证码
+  const loadCaptcha = async () => {
+    setLoadingCaptcha(true)
     try {
-      await sendVerifyCode(email)
-      setError('')
-      alert('验证码已发送到邮箱')
+      const res = await api.get('/auth/captcha') as any
+      if (res.code === 200) {
+        setCaptchaToken(res.data.token)
+        setCaptchaQuestion(res.data.question)
+        setCaptchaImage(res.data.image)
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '发送失败')
-    } finally {
-      setSending(false)
+      console.error('加载验证码失败', err)
     }
+    setLoadingCaptcha(false)
   }
+
+  useEffect(() => {
+    loadCaptcha()
+  }, [])
 
   const validateForm = () => {
     if (!email) {
@@ -53,12 +57,20 @@ export default function Register() {
       setError('昵称至少需要2个字符')
       return false
     }
+    if (nickname.length > 30) {
+      setError('昵称不能超过30个字符')
+      return false
+    }
     if (password.length < 6) {
       setError('密码长度至少为6位')
       return false
     }
     if (password !== confirmPassword) {
       setError('两次密码输入不一致')
+      return false
+    }
+    if (!captchaAnswer) {
+      setError('请输入验证码')
       return false
     }
     return true
@@ -72,11 +84,33 @@ export default function Register() {
 
     setLoading(true)
     try {
-      await register({ email, password, nickname, verify_code: verifyCode })
-      setSuccess(true)
-      setTimeout(() => navigate('/login'), 2000)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '注册失败，请稍后重试')
+      const res = await api.post('/auth/register', {
+        email,
+        password,
+        nickname,
+        captcha_token: captchaToken,
+        captcha_answer: captchaAnswer
+      }) as any
+      
+      if (res.code === 200) {
+        setSuccess(true)
+        setTimeout(() => navigate('/login'), 2000)
+      } else {
+        // 如果需要验证码，刷新验证码
+        if (res.require_captcha) {
+          loadCaptcha()
+          setCaptchaAnswer('')
+        }
+        setError(res.detail || '注册失败，请稍后重试')
+      }
+    } catch (err: any) {
+      const detail = err.response?.data?.detail || err.message
+      // 如果需要验证码
+      if (err.response?.data?.require_captcha) {
+        loadCaptcha()
+        setCaptchaAnswer('')
+      }
+      setError(detail || '注册失败，请稍后重试')
     } finally {
       setLoading(false)
     }
@@ -158,8 +192,9 @@ export default function Register() {
                 onChange={e => setNickname(e.target.value)}
                 required
                 minLength={2}
+                maxLength={30}
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                placeholder="你的昵称（至少2个字符）"
+                placeholder="你的昵称（2-30个字符）"
               />
             </div>
 
@@ -218,30 +253,40 @@ export default function Register() {
               )}
             </div>
 
+            {/* 验证码 */}
             <div>
-              <label htmlFor="verifyCode" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                📱 验证码
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                🔐 安全验证
               </label>
               <div className="flex gap-2">
-                <input
-                  id="verifyCode"
-                  type="text"
-                  value={verifyCode}
-                  onChange={e => setVerifyCode(e.target.value.replace(/\D/g, ''))}
-                  required
-                  maxLength={6}
-                  className="flex-1 px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="6位数字"
-                />
-                <button
-                  type="button"
-                  onClick={handleSendCode}
-                  disabled={sending}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:shadow-lg hover:shadow-blue-500/30 disabled:opacity-50 text-sm font-medium whitespace-nowrap transition-all"
-                >
-                  {sending ? '发送中...' : '获取验证码'}
-                </button>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">{captchaQuestion}</span>
+                    <button
+                      type="button"
+                      onClick={loadCaptcha}
+                      disabled={loadingCaptcha}
+                      className="text-xs text-blue-600 hover:text-blue-700 disabled:opacity-50"
+                    >
+                      🔄 换一道
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={captchaAnswer}
+                    onChange={e => setCaptchaAnswer(e.target.value.replace(/\D/g, ''))}
+                    required
+                    maxLength={10}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    placeholder="输入答案"
+                  />
+                </div>
               </div>
+              {captchaImage && (
+                <p className="mt-2 text-xs text-gray-500">
+                  💡 请计算上方数学题的结果
+                </p>
+              )}
             </div>
 
             <div className="flex items-start gap-2">
@@ -282,6 +327,16 @@ export default function Register() {
                 立即登录 →
               </Link>
             </p>
+          </div>
+
+          {/* 安全提示 */}
+          <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+            <p className="text-xs text-gray-500 dark:text-gray-400 text-center mb-2">🛡️ 安全注册</p>
+            <div className="text-xs text-gray-600 dark:text-gray-300 space-y-1">
+              <p>• 图形验证码防爬虫</p>
+              <p>• IP注册频率限制</p>
+              <p>• 临时邮箱禁止注册</p>
+            </div>
           </div>
         </div>
       </div>
