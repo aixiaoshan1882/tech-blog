@@ -101,6 +101,22 @@ app.include_router(upload_router)
 app.include_router(apikeys_router)
 
 
+# robots.txt
+ROBOTS_TXT = """User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /admin/
+
+Sitemap: http://localhost:3000/sitemap.xml
+"""
+
+
+@app.get("/robots.txt")
+async def robots_txt():
+    """返回 robots.txt"""
+    return Response(content=ROBOTS_TXT, media_type="text/plain")
+
+
 @app.get("/api/health")
 async def health_check():
     """健康检查"""
