@@ -1,0 +1,8 @@
+name = "tech-blog-api"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tech-blog-db"
+database_id = "fea56ff2-2b64-4e54-92a6-10c8777fbbd1"

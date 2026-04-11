@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #3b82f6;
+}
+
+body {
+  @apply bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+/* 夜间模式 */
+.dark {
+  color-scheme: dark;
+}
+
+/* 代码高亮主题 */
+pre[class*="language-"] {
+  @apply bg-gray-800 rounded-lg p-4 overflow-x-auto;
+}
+
+code[class*="language-"] {
+  @apply text-gray-100;
+}
+
+/* 链接样式 */
+a {
+  @apply text-primary hover:underline;
+}
