@@ -236,6 +236,85 @@ async def get_post(request: Request, slug: str) -> dict:
     return {"code": 200, "data": post}
 
 
+@router.get("/{slug}/related")
+async def get_related_posts(
+    request: Request,
+    slug: str,
+    limit: int = Query(5, ge=1, le=10),
+) -> dict:
+    """获取相关文章推荐（基于相同分类或标签）"""
+    # 获取当前文章
+    current_post = await db.first(
+        "SELECT id, category_id FROM posts WHERE slug = ? AND deleted_at IS NULL",
+        [slug]
+    )
+    if not current_post:
+        raise HTTPException(status_code=404, detail="文章不存在")
+    
+    # 获取当前文章的标签
+    current_tags = await db.select(
+        "SELECT tag_id FROM post_tags WHERE post_id = ?",
+        [current_post["id"]]
+    )
+    current_tag_ids = [t["tag_id"] for t in current_tags]
+    
+    # 构建查询：基于相同分类或标签的文章
+    if current_tag_ids:
+        # 有标签：优先匹配标签，其次匹配分类
+        posts = await db.select(
+            """
+            SELECT p.*, c.name as category_name, c.slug as category_slug,
+                   COUNT(DISTINCT pt.tag_id) as matching_tags
+            FROM posts p
+            LEFT JOIN categories c ON c.id = p.category_id
+            LEFT JOIN post_tags pt ON pt.post_id = p.id AND pt.tag_id IN (
+                SELECT tag_id FROM post_tags WHERE post_id = ?
+            )
+            WHERE p.id != ? AND p.is_public = 1 AND p.deleted_at IS NULL
+            GROUP BY p.id
+            ORDER BY matching_tags DESC, p.view_count DESC, p.created_at DESC
+            LIMIT ?
+            """,
+            [current_post["id"], current_post["id"], limit]
+        )
+    elif current_post["category_id"]:
+        # 无标签但有分类：匹配分类
+        posts = await db.select(
+            """
+            SELECT p.*, c.name as category_name, c.slug as category_slug
+            FROM posts p
+            LEFT JOIN categories c ON c.id = p.category_id
+            WHERE p.id != ? AND p.category_id = ? AND p.is_public = 1 AND p.deleted_at IS NULL
+            ORDER BY p.view_count DESC, p.created_at DESC
+            LIMIT ?
+            """,
+            [current_post["id"], current_post["category_id"], limit]
+        )
+    else:
+        # 无标签无分类：返回热门文章
+        posts = await db.select(
+            """
+            SELECT p.*, c.name as category_name, c.slug as category_slug
+            FROM posts p
+            LEFT JOIN categories c ON c.id = p.category_id
+            WHERE p.id != ? AND p.is_public = 1 AND p.deleted_at IS NULL
+            ORDER BY p.view_count DESC, p.created_at DESC
+            LIMIT ?
+            """,
+            [current_post["id"], limit]
+        )
+    
+    # 获取每篇文章的标签
+    for post in posts:
+        tags = await db.select(
+            "SELECT t.* FROM tags t JOIN post_tags pt ON pt.tag_id = t.id WHERE pt.post_id = ?",
+            [post["id"]],
+        )
+        post["tags"] = tags
+    
+    return {"code": 200, "data": posts}
+
+
 @router.post("")
 async def create_post(request: Request) -> dict:
     """创建文章"""
