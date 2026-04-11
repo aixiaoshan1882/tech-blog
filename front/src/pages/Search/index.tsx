@@ -1,12 +1,16 @@
 /**
- * 搜索页 - 移动端优化
+ * 搜索页 - 安全增强版
  */
 
 import { useSearchParams, Link } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { search } from '@/api/search'
 import { PostCard } from '@/components/PostCard/PostCard'
 import { usePagination } from '@/hooks/useStore'
+import { isValidSearchKeyword, safeJsonParse, truncate } from '@/utils/security'
+
+const MAX_KEYWORD_LENGTH = 50
+const MAX_HISTORY_ITEMS = 10
 
 const hotKeywords = ['Python', 'JavaScript', 'React', 'TypeScript', 'Docker', 'Git', '算法', '性能优化']
 const tagIcons: Record<string, string> = {
@@ -34,20 +38,38 @@ export default function Search() {
     setKeyword(query)
   }, [query])
 
+  // 安全处理关键词
+  const handleKeywordChange = useCallback((value: string) => {
+    if (value.length > MAX_KEYWORD_LENGTH) {
+      value = value.substring(0, MAX_KEYWORD_LENGTH)
+    }
+    setKeyword(value)
+  }, [])
+  
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    if (keyword.trim()) {
-      setSearchParams({ q: keyword.trim() })
+    const trimmedKeyword = keyword.trim()
+    
+    const validation = isValidSearchKeyword(trimmedKeyword)
+    if (!validation.valid) {
+      console.warn(validation.error)
+    }
+    
+    if (trimmedKeyword) {
+      const safeKeyword = truncate(trimmedKeyword, MAX_KEYWORD_LENGTH)
+      setSearchParams({ q: safeKeyword })
       setShowHistory(false)
-      const history = JSON.parse(localStorage.getItem('searchHistory') || '[]')
-      const newHistory = [keyword.trim(), ...history.filter((h: string) => h !== keyword.trim())].slice(0, 10)
+      
+      const history = safeJsonParse<string[]>(localStorage.getItem('searchHistory'), [])
+      const newHistory = [safeKeyword, ...history.filter((h: string) => h !== safeKeyword)].slice(0, MAX_HISTORY_ITEMS)
       localStorage.setItem('searchHistory', JSON.stringify(newHistory))
     }
   }
 
   const handleKeywordClick = (kw: string) => {
-    setKeyword(kw)
-    setSearchParams({ q: kw })
+    const safeKeyword = truncate(String(kw).trim(), MAX_KEYWORD_LENGTH)
+    setKeyword(safeKeyword)
+    setSearchParams({ q: safeKeyword })
     setShowHistory(false)
   }
 
@@ -74,9 +96,10 @@ export default function Search() {
           <input
             type="text"
             value={keyword}
-            onChange={e => setKeyword(e.target.value)}
+            onChange={e => handleKeywordChange(e.target.value)}
             onFocus={() => setShowHistory(true)}
             placeholder="搜索文章..."
+            maxLength={MAX_KEYWORD_LENGTH}
             className="w-full px-4 sm:px-6 py-3 sm:py-4 pl-11 sm:pl-14 text-base sm:text-lg rounded-xl sm:rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-md sm:shadow-lg transition-all"
           />
           <span className="absolute left-4 sm:left-5 top-1/2 -translate-y-1/2 text-xl sm:text-2xl">🔍</span>

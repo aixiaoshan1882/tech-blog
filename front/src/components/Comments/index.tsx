@@ -1,15 +1,18 @@
 /**
- * 评论组件
+ * 评论组件 - 安全增强版
  */
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useAsync } from '@/hooks/useStore'
 import { getComments, createComment } from '@/api/comments'
 import { authStore } from '@/store/authStore'
+import { isValidComment } from '@/utils/security'
 import dayjs from 'dayjs'
 import 'dayjs/locale/zh-cn'
 
 dayjs.locale('zh-cn')
+
+const MAX_COMMENT_LENGTH = 2000
 
 interface CommentsProps {
   postId: number
@@ -20,6 +23,7 @@ export function Comments({ postId }: CommentsProps) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [refreshing, setRefreshing] = useState(0)
+  const [submitLocked, setSubmitLocked] = useState(false)
 
   const { data: comments, loading, error: loadError } = useAsync(
     () => getComments({ postId }).then(r => r.items),
@@ -29,21 +33,46 @@ export function Comments({ postId }: CommentsProps) {
   const user = authStore.getState().user
   const isLoggedIn = !!user
 
+  // 安全处理输入
+  const handleContentChange = useCallback((value: string) => {
+    // 限制长度
+    if (value.length > MAX_COMMENT_LENGTH) {
+      value = value.substring(0, MAX_COMMENT_LENGTH)
+    }
+    setContent(value)
+    // 清除错误
+    if (error) setError('')
+  }, [error])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!content.trim()) return
+    
+    // 防抖锁
+    if (submitLocked) return
+    
+    const trimmedContent = content.trim()
+    
+    // 验证内容
+    const validation = isValidComment(trimmedContent)
+    if (!validation.valid) {
+      setError(validation.error || '评论格式不正确')
+      return
+    }
 
     setError('')
     setSubmitting(true)
+    setSubmitLocked(true)
 
     try {
-      await createComment({ postId, content: content.trim() })
+      await createComment({ postId, content: trimmedContent })
       setContent('')
-      setRefreshing(r => r + 1) // 刷新评论列表
+      setRefreshing(r => r + 1)
     } catch (err) {
       setError(err instanceof Error ? err.message : '评论失败')
     } finally {
       setSubmitting(false)
+      // 2秒后才能再次提交
+      setTimeout(() => setSubmitLocked(false), 2000)
     }
   }
 
@@ -88,15 +117,17 @@ export function Comments({ postId }: CommentsProps) {
           <form onSubmit={handleSubmit}>
             <textarea
               value={content}
-              onChange={e => setContent(e.target.value)}
+              onChange={e => handleContentChange(e.target.value)}
               placeholder="写下你的评论..."
               rows={4}
+              maxLength={MAX_COMMENT_LENGTH}
               className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {error && (
               <p className="mt-2 text-sm text-red-500">{error}</p>
             )}
-            <div className="mt-3 flex justify-end">
+            <div className="mt-2 flex justify-between items-center">
+              <span className="text-xs text-gray-400">{content.length}/{MAX_COMMENT_LENGTH}</span>
               <button
                 type="submit"
                 disabled={submitting || !content.trim()}
