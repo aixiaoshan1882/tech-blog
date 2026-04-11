@@ -8,6 +8,8 @@ import Tag from '@/pages/Tag'
 import Search from '@/pages/Search'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
+import Profile from '@/pages/Profile'
+import ForgotPassword from '@/pages/ForgotPassword'
 import AdminLayout from '@/pages/Admin/layout'
 import Dashboard from '@/pages/Admin/Dashboard'
 import PostList from '@/pages/Admin/PostList'
@@ -38,6 +40,8 @@ export default function App() {
           <Route path="login" element={<Login />} />
           <Route path="register" element={<Register />} />
           <Route path="about" element={<About />} />
+          <Route path="profile" element={<Profile />} />
+          <Route path="forgot-password" element={<ForgotPassword />} />
         </Route>
 
         {/* 后台管理 */}
