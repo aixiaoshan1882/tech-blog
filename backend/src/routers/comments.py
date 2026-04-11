@@ -1,10 +1,16 @@
 """评论路由"""
-from fastapi import APIRouter, Request, HTTPException, Query
+from fastapi import APIRouter, Request, HTTPException, Query, Body
 from fastapi.responses import JSONResponse
+from pydantic import Field
 from ..database import db
 from ..utils.sanitize import sanitize_html
 from ..utils.ratelimit import comment_limiter
 from .auth import require_admin, get_user_by_id
+
+# 评论配置
+COMMENT_MAX_LENGTH = 2000  # 评论最大字符数
+COMMENT_MIN_LENGTH = 2     # 评论最小字符数
+NICKNAME_MAX_LENGTH = 50   # 昵称最大字符数
 
 router = APIRouter(prefix="/comments", tags=["评论"])
 
@@ -104,12 +110,27 @@ async def create_comment(request: Request, slug: str) -> dict:
     parent_id = body.get("parent_id", 0)
     email = body.get("email")
 
+    # 验证必填字段
     if not nickname or not content:
         raise HTTPException(status_code=400, detail="缺少必要参数")
+    
+    # 验证内容长度（ sanitization 之前）
+    content = str(content).strip()
+    if len(content) < COMMENT_MIN_LENGTH:
+        raise HTTPException(status_code=400, detail=f"评论内容至少{COMMENT_MIN_LENGTH}个字符")
+    if len(content) > COMMENT_MAX_LENGTH:
+        raise HTTPException(status_code=400, detail=f"评论内容不能超过{COMMENT_MAX_LENGTH}个字符")
+    
+    # 验证昵称长度
+    nickname = str(nickname).strip()
+    if len(nickname) < 2:
+        raise HTTPException(status_code=400, detail="昵称至少2个字符")
+    if len(nickname) > NICKNAME_MAX_LENGTH:
+        raise HTTPException(status_code=400, detail=f"昵称不能超过{NICKNAME_MAX_LENGTH}个字符")
 
-    # XSS 防护 - 清理用户输入
-    nickname = sanitize_html(nickname)[:50]
-    content = sanitize_html(content)[:2000]
+    # XSS 防护 - 清理用户输入（限制长度）
+    nickname = sanitize_html(nickname)[:NICKNAME_MAX_LENGTH]
+    content = sanitize_html(content)[:COMMENT_MAX_LENGTH]
     email = sanitize_html(email)[:100] if email else None
 
     result = await db.execute(
