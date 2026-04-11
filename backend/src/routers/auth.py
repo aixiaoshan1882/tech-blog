@@ -7,7 +7,7 @@ import datetime
 from ..database import db
 from ..schemas import UserCreate, UserLogin, UserResponse
 from ..utils.auth import hash_password, verify_password, create_token
-from ..utils.sanitize import validate_email, validate_password
+from ..utils.sanitize import validate_email, validate_password, sanitize_html
 from ..utils.ratelimit import login_limiter, api_limiter
 
 router = APIRouter(prefix="/auth", tags=["认证"])
@@ -137,6 +137,8 @@ async def login(request: Request) -> dict:
                 "email": user["email"],
                 "nickname": user["nickname"],
                 "role": user.get("role", "reader"),
+                "avatar": user.get("avatar"),
+                "bio": user.get("bio"),
             },
         },
     }
@@ -150,7 +152,7 @@ async def get_current_user(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="未登录")
 
     user = await db.first(
-        "SELECT id, email, nickname, role, created_at FROM users WHERE id = ?",
+        "SELECT id, email, nickname, role, avatar, bio, created_at FROM users WHERE id = ?",
         [user_id]
     )
     if not user:
@@ -287,6 +289,71 @@ async def change_password(request: Request) -> dict:
     await db.execute("UPDATE users SET password = ? WHERE id = ?", [hashed, user_id])
     
     return {"code": 200, "msg": "密码修改成功"}
+
+
+@router.get("/profile")
+async def get_profile(request: Request) -> dict:
+    """获取个人资料"""
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="未登录")
+    
+    user = await db.first(
+        "SELECT id, email, nickname, role, avatar, bio, created_at FROM users WHERE id = ?",
+        [user_id]
+    )
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    
+    return {"code": 200, "data": user}
+
+
+@router.put("/profile")
+async def update_profile(request: Request) -> dict:
+    """更新个人资料"""
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="未登录")
+    
+    body = await request.json()
+    
+    # 构建更新语句
+    updates = []
+    params = []
+    
+    # 可更新的字段
+    allowed_fields = ["nickname", "avatar", "bio"]
+    for field in allowed_fields:
+        if field in body:
+            value = body[field]
+            # 字符串字段长度限制
+            if field == "nickname":
+                value = sanitize_html(str(value))[:50] if value else None
+            elif field == "avatar":
+                # 头像 URL 长度限制
+                value = str(value)[:500] if value else None
+            elif field == "bio":
+                value = sanitize_html(str(value))[:200] if value else None
+            
+            updates.append(f"{field} = ?")
+            params.append(value)
+    
+    if not updates:
+        raise HTTPException(status_code=400, detail="没有要更新的字段")
+    
+    params.append(user_id)
+    await db.execute(
+        f"UPDATE users SET {', '.join(updates)} WHERE id = ?",
+        params
+    )
+    
+    # 返回更新后的资料
+    user = await db.first(
+        "SELECT id, email, nickname, role, avatar, bio, created_at FROM users WHERE id = ?",
+        [user_id]
+    )
+    
+    return {"code": 200, "msg": "资料更新成功", "data": user}
 
 
 @router.post("/logout")
