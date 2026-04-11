@@ -3,6 +3,7 @@ from fastapi import APIRouter, Request, HTTPException, Query
 from typing import Optional
 from ..database import db
 from .auth import require_admin, get_user_by_id
+from ..utils.sanitize import sanitize_html
 
 router = APIRouter(prefix="/posts", tags=["文章"])
 
@@ -173,6 +174,11 @@ async def create_post(request: Request) -> dict:
     if not title or not slug or not content:
         raise HTTPException(status_code=400, detail="缺少必要参数")
 
+    # XSS 防护 - 转义 HTML
+    title = sanitize_html(title)[:200]
+    slug = sanitize_html(slug)[:100]
+    content = sanitize_html(content)[:50000]
+
     # 检查 slug 唯一
     existing = await db.first("SELECT id FROM posts WHERE slug = ?", [slug])
     if existing:
@@ -188,7 +194,7 @@ async def create_post(request: Request) -> dict:
             title,
             slug,
             content,
-            body.get("excerpt"),
+            sanitize_html(body.get("excerpt", ""))[:500],
             body.get("cover"),
             body.get("category_id"),
             body.get("is_public", 1),
@@ -222,8 +228,19 @@ async def update_post(request: Request, id: int) -> dict:
 
     for field in ["title", "slug", "content", "excerpt", "cover", "category_id", "is_public"]:
         if field in body and body[field] is not None:
+            # XSS 防护
+            value = sanitize_html(body[field])
+            if field in ["title"]:
+                value = value[:200]
+            elif field == "slug":
+                value = value[:100]
+            elif field == "content":
+                value = value[:50000]
+            elif field == "excerpt":
+                value = value[:500]
+            
             updates.append(f"{field} = ?")
-            params.append(body[field])
+            params.append(value)
 
     if not updates:
         raise HTTPException(status_code=400, detail="没有要更新的字段")
