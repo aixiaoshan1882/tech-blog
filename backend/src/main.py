@@ -132,15 +132,25 @@ async def health_check():
 async def system_status():
     """系统状态"""
     import os
-    import psutil
     
     # 数据库状态
     db_size = 0
+    db_path = "tech-blog.db"
+    if os.path.exists(db_path):
+        db_size = os.path.getsize(db_path)
+    
+    # 平台信息（不使用 psutil）
+    platform_info = {
+        "os": os.name if hasattr(os, 'name') else "unknown",
+        "python_version": os.sys.version.split()[0] if hasattr(os.sys, 'version') else "unknown",
+    }
+    
     try:
-        db_path = "tech-blog.db"
-        if os.path.exists(db_path):
-            db_size = os.path.getsize(db_path)
-    except:
+        import psutil
+        platform_info["cpu_count"] = psutil.cpu_count()
+        platform_info["memory_percent"] = psutil.virtual_memory().percent
+    except ImportError:
+        # psutil 未安装时跳过
         pass
     
     # 获取统计数据
@@ -161,10 +171,7 @@ async def system_status():
                 "users": users_count["c"] if users_count else 0,
                 "comments": comments_count["c"] if comments_count else 0,
             },
-            "platform": {
-                "os": os.name,
-                "python_version": os.sys.version.split()[0] if hasattr(os.sys, 'version') else 'unknown',
-            },
+            "platform": platform_info,
         },
     }
 
