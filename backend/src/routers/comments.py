@@ -191,3 +191,68 @@ async def delete_comment(request: Request, id: int) -> dict:
     await db.execute("DELETE FROM comments WHERE id = ?", [id])
 
     return {"code": 200, "msg": "删除成功"}
+
+
+@router.post("/{id}/like")
+async def like_comment(request: Request, id: int) -> dict:
+    """点赞评论"""
+    user_id = getattr(request.state, "user_id", None)
+    
+    # 检查评论是否存在
+    comment = await db.first("SELECT * FROM comments WHERE id = ?", [id])
+    if not comment:
+        raise HTTPException(status_code=404, detail="评论不存在")
+    
+    # 如果已登录，检查是否已经点赞
+    if user_id:
+        existing = await db.first(
+            "SELECT id FROM comment_likes WHERE user_id = ? AND comment_id = ?",
+            [user_id, id]
+        )
+        if existing:
+            raise HTTPException(status_code=400, detail="已经点赞过了")
+        
+        # 记录点赞
+        await db.execute(
+            "INSERT INTO comment_likes (user_id, comment_id) VALUES (?, ?)",
+            [user_id, id]
+        )
+    
+    # 增加点赞数
+    await db.execute("UPDATE comments SET like_count = like_count + 1 WHERE id = ?", [id])
+    
+    # 获取当前点赞数
+    comment = await db.first("SELECT like_count FROM comments WHERE id = ?", [id])
+    like_count = comment["like_count"] if comment else 0
+
+    return {"code": 200, "msg": "点赞成功", "data": {"like_count": like_count}}
+
+
+@router.delete("/{id}/like")
+async def unlike_comment(request: Request, id: int) -> dict:
+    """取消点赞评论"""
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="请先登录")
+    
+    existing = await db.first(
+        "SELECT id FROM comment_likes WHERE user_id = ? AND comment_id = ?",
+        [user_id, id]
+    )
+    if not existing:
+        raise HTTPException(status_code=400, detail="还没有点赞")
+    
+    await db.execute(
+        "DELETE FROM comment_likes WHERE user_id = ? AND comment_id = ?",
+        [user_id, id]
+    )
+    
+    await db.execute(
+        "UPDATE comments SET like_count = MAX(0, like_count - 1) WHERE id = ?",
+        [id]
+    )
+    
+    comment = await db.first("SELECT like_count FROM comments WHERE id = ?", [id])
+    like_count = comment["like_count"] if comment else 0
+
+    return {"code": 200, "msg": "取消点赞成功", "data": {"like_count": like_count}}

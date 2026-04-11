@@ -5,6 +5,7 @@ from ..database import db
 from .auth import require_admin, get_user_by_id
 from ..utils.sanitize import sanitize_html
 from ..utils.cache import cache
+from ..utils.toc import extract_headings
 
 router = APIRouter(prefix="/posts", tags=["文章"])
 
@@ -249,6 +250,12 @@ async def get_post(request: Request, slug: str) -> dict:
         [post["id"]],
     )
     post["tags"] = tags
+    
+    # 提取文章目录
+    if post.get("content"):
+        post["toc"] = extract_headings(post["content"])
+    else:
+        post["toc"] = []
 
     return {"code": 200, "data": post}
 
@@ -364,12 +371,19 @@ async def create_post(request: Request) -> dict:
     
     # 确保 is_public 是 0 或 1
     is_public = 1 if is_public else 0
-
+    
+    # 获取定时发布时间
+    scheduled_at = body.get("scheduled_at")
+    
+    # 如果设置了定时发布时间，文章默认不公开
+    if scheduled_at:
+        is_public = 0
+    
     # 插入文章，关联当前管理员
     result = await db.execute(
         """
-        INSERT INTO posts (title, slug, content, excerpt, cover, category_id, user_id, is_public)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO posts (title, slug, content, excerpt, cover, category_id, user_id, is_public, scheduled_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         [
             title,
@@ -380,6 +394,7 @@ async def create_post(request: Request) -> dict:
             body.get("category_id"),
             user_id,
             is_public,
+            scheduled_at,
         ],
     )
 
@@ -396,7 +411,7 @@ async def create_post(request: Request) -> dict:
     # 清除文章列表缓存
     cache.clear_pattern("posts:*")
 
-    return {"code": 200, "msg": "创建成功", "data": {"id": post_id, "is_public": is_public}}
+    return {"code": 200, "msg": "创建成功", "data": {"id": post_id, "is_public": is_public, "scheduled_at": scheduled_at}}
 
 
 @router.put("/{id}")
@@ -885,3 +900,69 @@ async def get_favorite_status(request: Request, id: int) -> dict:
         "code": 200,
         "data": {"favorited": favorited}
     }
+
+
+@router.get("/scheduled/list")
+async def get_scheduled_posts(
+    request: Request,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=50),
+) -> dict:
+    """获取待发布的定时文章列表 (管理员)"""
+    await require_admin(request)
+    
+    offset = (page - 1) * limit
+    
+    posts = await db.select(
+        """
+        SELECT p.id, p.title, p.slug, p.scheduled_at, p.created_at,
+               c.name as category_name
+        FROM posts p
+        LEFT JOIN categories c ON c.id = p.category_id
+        WHERE p.scheduled_at IS NOT NULL
+          AND p.deleted_at IS NULL
+        ORDER BY p.scheduled_at ASC
+        LIMIT ? OFFSET ?
+        """,
+        [limit, offset]
+    )
+    
+    total_result = await db.first(
+        "SELECT COUNT(*) as count FROM posts WHERE scheduled_at IS NOT NULL AND deleted_at IS NULL"
+    )
+    total = total_result["count"] if total_result else 0
+    
+    return {
+        "code": 200,
+        "data": {
+            "items": posts,
+            "total": total,
+            "page": page,
+            "limit": limit,
+        },
+    }
+
+
+@router.post("/scheduled/publish-now/{id}")
+async def publish_now(request: Request, id: int) -> dict:
+    """立即发布定时文章 (管理员)"""
+    await require_admin(request)
+    
+    # 检查文章是否存在
+    post = await db.first(
+        "SELECT id, title FROM posts WHERE id = ? AND scheduled_at IS NOT NULL AND deleted_at IS NULL",
+        [id]
+    )
+    if not post:
+        raise HTTPException(status_code=404, detail="文章不存在或未设置定时发布")
+    
+    # 立即发布
+    await db.execute(
+        "UPDATE posts SET is_public = 1, scheduled_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [id]
+    )
+    
+    # 清除缓存
+    cache.clear_pattern("posts:*")
+    
+    return {"code": 200, "msg": "文章已立即发布"}
