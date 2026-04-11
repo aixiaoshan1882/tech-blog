@@ -969,7 +969,7 @@ async def publish_now(request: Request, id: int) -> dict:
 
 
 @router.get("/top")
-async def get_top_posts(period: str = Query(default="views", regex="^(views|likes|comments)$")) -> dict:
+async def get_top_posts(period: str = Query(default="views", pattern="^(views|likes|comments)$")) -> dict:
     """获取热门文章排行"""
     order_column = {
         "views": "view_count",

@@ -27,10 +27,7 @@ class UserResponse(BaseModel):
     nickname: str
     created_at: str
 
-    class Config:
-        from_attributes = True
-
-
+    model_config = {'from_attributes': True}
 # ============ 文章 Schema ============
 
 
@@ -75,10 +72,7 @@ class PostResponse(BaseModel):
     category_slug: Optional[str] = None
     tags: List[dict] = []
 
-    class Config:
-        from_attributes = True
-
-
+    model_config = {'from_attributes': True}
 class PostListResponse(BaseModel):
     """文章列表响应"""
     items: List[PostResponse]
@@ -106,10 +100,7 @@ class CategoryResponse(BaseModel):
     created_at: str
     children: List["CategoryResponse"] = []
 
-    class Config:
-        from_attributes = True
-
-
+    model_config = {'from_attributes': True}
 # 更新前向引用
 CategoryResponse.model_rebuild()
 
@@ -129,10 +120,7 @@ class TagResponse(BaseModel):
     name: str
     slug: str
 
-    class Config:
-        from_attributes = True
-
-
+    model_config = {'from_attributes': True}
 # ============ 评论 Schema ============
 
 
@@ -155,10 +143,7 @@ class CommentResponse(BaseModel):
     created_at: str
     children: List["CommentResponse"] = []
 
-    class Config:
-        from_attributes = True
-
-
+    model_config = {'from_attributes': True}
 CommentResponse.model_rebuild()
 
 

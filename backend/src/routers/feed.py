@@ -146,10 +146,9 @@ async def get_sitemap(request: Request) -> Response:
     # 获取所有公开文章
     posts = await db.select(
         """
-        SELECT slug, updated_at
-        FROM posts
+        SELECT slug FROM posts
         WHERE is_public = 1 AND deleted_at IS NULL
-        ORDER BY updated_at DESC
+        ORDER BY created_at DESC
         LIMIT 1000
         """,
         [],
@@ -157,13 +156,13 @@ async def get_sitemap(request: Request) -> Response:
 
     # 获取所有分类
     categories = await db.select(
-        "SELECT slug, updated_at FROM categories ORDER BY name",
+        "SELECT slug FROM categories ORDER BY name",
         [],
     )
 
     # 获取所有标签
     tags = await db.select(
-        "SELECT slug, updated_at FROM tags ORDER BY name",
+        "SELECT slug FROM tags ORDER BY name",
         [],
     )
 
@@ -180,33 +179,30 @@ async def get_sitemap(request: Request) -> Response:
 
     # 添加分类页面
     for cat in categories:
-        cat_date = datetime.fromisoformat(cat["updated_at"]).strftime("%Y-%m-%dT%H:%M:%S+08:00") if cat.get("updated_at") else now
         urls_xml += f"""
     <url>
         <loc>{site_url}/category/{cat['slug']}</loc>
-        <lastmod>{cat_date}</lastmod>
+        <lastmod>{now}</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.8</priority>
     </url>"""
 
     # 添加标签页面
     for tag in tags:
-        tag_date = datetime.fromisoformat(tag["updated_at"]).strftime("%Y-%m-%dT%H:%M:%S+08:00") if tag.get("updated_at") else now
         urls_xml += f"""
     <url>
         <loc>{site_url}/tag/{tag['slug']}</loc>
-        <lastmod>{tag_date}</lastmod>
+        <lastmod>{now}</lastmod>
         <changefreq>weekly</changefreq>
         <priority>0.6</priority>
     </url>"""
 
     # 添加文章页面
     for post in posts:
-        post_date = datetime.fromisoformat(post["updated_at"]).strftime("%Y-%m-%dT%H:%M:%S+08:00") if post.get("updated_at") else now
         urls_xml += f"""
     <url>
         <loc>{site_url}/post/{post['slug']}</loc>
-        <lastmod>{post_date}</lastmod>
+        <lastmod>{now}</lastmod>
         <changefreq>monthly</changefreq>
         <priority>0.9</priority>
     </url>"""
