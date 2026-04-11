@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { api } from '@/api'
-import { Link } from 'react-router-dom'
 
 interface TrashPost {
   id: number
@@ -25,7 +24,7 @@ export default function TrashManage() {
   const fetchTrashPosts = async () => {
     setLoading(true)
     try {
-      const res = await api.get(`/posts/trash/list?page=${page}&limit=10`)
+      const res = await api.get(`/posts/trash/list?page=${page}&limit=10`) as any
       setPosts(res.data.items)
       setTotal(res.data.total)
     } catch (error) {
@@ -37,7 +36,7 @@ export default function TrashManage() {
   const handleRestore = async (id: number) => {
     if (!confirm('确定要恢复该文章吗？')) return
     try {
-      await api.post(`/posts/${id}/restore`)
+      await api.post(`/posts/${id}/restore`, {})
       alert('文章已恢复')
       fetchTrashPosts()
     } catch (error) {

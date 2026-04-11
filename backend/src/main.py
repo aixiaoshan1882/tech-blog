@@ -19,6 +19,9 @@ from .routers import (
     logs_router,
     users_router,
     announcements_router,
+    feed_router,
+    upload_router,
+    apikeys_router,
 )
 from .utils.auth import decode_token
 from .utils.ratelimit import api_limiter
@@ -93,6 +96,9 @@ app.include_router(notifications_router, prefix="/api")
 app.include_router(logs_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
 app.include_router(announcements_router, prefix="/api")
+app.include_router(feed_router)  # RSS/Sitemap - 不需要 /api 前缀
+app.include_router(upload_router)
+app.include_router(apikeys_router)
 
 
 @app.get("/api/health")

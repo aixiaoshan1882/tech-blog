@@ -35,7 +35,7 @@ export default function AnnouncementManage() {
   const fetchAnnouncements = async () => {
     setLoading(true)
     try {
-      const res = await api.get('/announcements/all')
+      const res = await api.get('/announcements/all') as any
       setAnnouncements(res.data.items)
     } catch (error) {
       console.error('获取公告失败', error)
@@ -158,7 +158,7 @@ export default function AnnouncementManage() {
                 <label className="flex items-center">
                   <input
                     type="checkbox"
-                    checked={formData.is_pinned}
+                    checked={Boolean(formData.is_pinned)}
                     onChange={(e) => setFormData({ ...formData, is_pinned: e.target.checked })}
                     className="mr-2"
                   />
@@ -167,7 +167,7 @@ export default function AnnouncementManage() {
                 <label className="flex items-center">
                   <input
                     type="checkbox"
-                    checked={formData.is_active}
+                    checked={Boolean(formData.is_active)}
                     onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
                     className="mr-2"
                   />
@@ -206,8 +206,8 @@ export default function AnnouncementManage() {
                     <span className={`px-2 py-1 text-xs rounded ${typeColors[ann.type] || 'bg-gray-100'}`}>
                       {ann.type}
                     </span>
-                    {ann.is_pinned === 1 && <span className="text-red-500">置顶</span>}
-                    {ann.is_active !== 1 && <span className="text-gray-400">已禁用</span>}
+                    {ann.is_pinned && <span className="text-red-500">置顶</span>}
+                    {!ann.is_active && <span className="text-gray-400">已禁用</span>}
                   </div>
                   <h3 className="font-bold text-lg">{ann.title}</h3>
                   <p className="text-gray-600 mt-2">{ann.content}</p>

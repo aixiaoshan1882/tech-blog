@@ -32,7 +32,7 @@ export default function UserManage() {
       if (keyword) params.append('keyword', keyword)
       if (roleFilter) params.append('role', roleFilter)
       
-      const res = await api.get(`/users?${params}`)
+      const res = await api.get(`/users?${params}`) as any
       setUsers(res.data.items)
       setTotal(res.data.total)
     } catch (error) {

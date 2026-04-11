@@ -10,6 +10,9 @@ from .notifications import router as notifications_router
 from .logs import router as logs_router
 from .users import router as users_router
 from .announcements import router as announcements_router
+from .feed import router as feed_router
+from .upload import router as upload_router
+from .apikeys import router as apikeys_router
 
 __all__ = [
     "auth_router",
@@ -23,4 +26,7 @@ __all__ = [
     "logs_router",
     "users_router",
     "announcements_router",
+    "feed_router",
+    "upload_router",
+    "apikeys_router",
 ]

@@ -31,9 +31,9 @@ export default function Dashboard() {
     setLoading(true)
     try {
       const [statsRes, userRes, postsRes] = await Promise.all([
-        api.get('/stats'),
-        api.get('/users/stats/overview'),
-        api.get('/posts?limit=5'),
+        api.get('/stats') as any,
+        api.get('/users/stats/overview') as any,
+        api.get('/posts?limit=5') as any,
       ])
       setStats(statsRes.data.data)
       setUserStats(userRes.data.data)

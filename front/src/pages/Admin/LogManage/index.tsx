@@ -30,7 +30,7 @@ export default function LogManage() {
   const fetchLogs = async () => {
     setLoading(true)
     try {
-      const res = await api.get(`/logs?page=${page}&limit=20`)
+      const res = await api.get(`/logs?page=${page}&limit=20`) as any
       setLogs(res.data.items)
       setTotal(res.data.total)
     } catch (error) {
@@ -41,7 +41,7 @@ export default function LogManage() {
 
   const fetchStats = async () => {
     try {
-      const res = await api.get('/logs/stats')
+      const res = await api.get('/logs/stats') as any
       setStats(res.data)
     } catch (error) {
       console.error('获取统计失败', error)
