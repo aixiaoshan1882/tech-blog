@@ -1,6 +1,7 @@
 """分类路由"""
 from fastapi import APIRouter, Request, HTTPException, Query
 from ..database import db
+from .auth import require_admin
 
 router = APIRouter(prefix="/categories", tags=["分类"])
 
@@ -26,9 +27,7 @@ async def get_categories() -> dict:
 @router.post("")
 async def create_category(request: Request) -> dict:
     """创建分类"""
-    user_id = getattr(request.state, "user_id", None)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="未登录")
+    await require_admin(request)
 
     body = await request.json()
     name = body.get("name")
@@ -54,9 +53,7 @@ async def create_category(request: Request) -> dict:
 @router.delete("/{id}")
 async def delete_category(request: Request, id: int) -> dict:
     """删除分类"""
-    user_id = getattr(request.state, "user_id", None)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="未登录")
+    await require_admin(request)
 
     # 检查是否有文章
     count = await db.first("SELECT COUNT(*) as count FROM posts WHERE category_id = ?", [id])

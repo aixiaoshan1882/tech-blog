@@ -19,6 +19,27 @@ def get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def get_user_by_id(user_id: int) -> Optional[dict]:
+    """根据 ID 获取用户"""
+    return db.first("SELECT * FROM users WHERE id = ?", [user_id])
+
+
+async def require_admin(request: Request) -> dict:
+    """验证管理员权限"""
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="未登录")
+    
+    user = await get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="需要管理员权限")
+    
+    return user
+
+
 @router.post("/register")
 async def register(request: Request) -> dict:
     """用户注册"""
@@ -48,15 +69,19 @@ async def register(request: Request) -> dict:
     # 加密密码
     hashed = hash_password(password)
 
-    # 创建用户
+    # 创建用户 (默认 role 为 reader)
     result = await db.execute(
-        "INSERT INTO users (email, password, nickname) VALUES (?, ?, ?)",
-        [email, hashed, nickname]
+        "INSERT INTO users (email, password, nickname, role) VALUES (?, ?, ?, ?)",
+        [email, hashed, nickname, "reader"]
     )
 
     # 检查是否为第一个用户(管理员)
     user_count = await db.first("SELECT COUNT(*) as count FROM users")
-    is_admin = user_count["count"] == 1 if user_count else False
+    if user_count and user_count["count"] == 1:
+        await db.execute("UPDATE users SET role = 'admin' WHERE id = ?", [result.get("last_row_id")])
+        is_admin = True
+    else:
+        is_admin = False
 
     return {
         "code": 200,
@@ -109,6 +134,7 @@ async def login(request: Request) -> dict:
                 "id": user["id"],
                 "email": user["email"],
                 "nickname": user["nickname"],
+                "role": user.get("role", "reader"),
             },
         },
     }
@@ -122,7 +148,7 @@ async def get_current_user(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="未登录")
 
     user = await db.first(
-        "SELECT id, email, nickname, created_at FROM users WHERE id = ?",
+        "SELECT id, email, nickname, role, created_at FROM users WHERE id = ?",
         [user_id]
     )
     if not user:

@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Request, HTTPException, Query
 from typing import Optional
 from ..database import db
+from .auth import require_admin, get_user_by_id
 
 router = APIRouter(prefix="/posts", tags=["文章"])
 
@@ -159,10 +160,8 @@ async def get_post(request: Request, slug: str) -> dict:
 @router.post("")
 async def create_post(request: Request) -> dict:
     """创建文章"""
-    # 检查权限
-    user_id = getattr(request.state, "user_id", None)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="未登录")
+    # 检查管理员权限
+    await require_admin(request)
 
     body = await request.json()
 
@@ -212,9 +211,8 @@ async def create_post(request: Request) -> dict:
 @router.put("/{id}")
 async def update_post(request: Request, id: int) -> dict:
     """更新文章"""
-    user_id = getattr(request.state, "user_id", None)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="未登录")
+    # 检查管理员权限
+    await require_admin(request)
 
     body = await request.json()
 
@@ -250,9 +248,8 @@ async def update_post(request: Request, id: int) -> dict:
 @router.delete("/{id}")
 async def delete_post(request: Request, id: int) -> dict:
     """删除文章"""
-    user_id = getattr(request.state, "user_id", None)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="未登录")
+    # 检查管理员权限
+    await require_admin(request)
 
     await db.execute("DELETE FROM posts WHERE id = ?", [id])
 
