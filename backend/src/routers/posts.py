@@ -27,7 +27,7 @@ async def get_posts(
         is_admin = user and user.get("role") == "admin"
 
     # 构建查询条件
-    where_clauses = []
+    where_clauses = ["p.deleted_at IS NULL"]
     params = []
     
     # 非管理员只能看公开文章
@@ -89,7 +89,7 @@ async def get_hot_posts(
         SELECT p.*, c.name as category_name, c.slug as category_slug
         FROM posts p
         LEFT JOIN categories c ON c.id = p.category_id
-        WHERE p.is_public = 1
+        WHERE p.is_public = 1 AND p.deleted_at IS NULL
         ORDER BY p.view_count DESC, p.created_at DESC
         LIMIT ?
         """,
@@ -116,7 +116,7 @@ async def get_latest_posts(
         SELECT p.*, c.name as category_name, c.slug as category_slug
         FROM posts p
         LEFT JOIN categories c ON c.id = p.category_id
-        WHERE p.is_public = 1
+        WHERE p.is_public = 1 AND p.deleted_at IS NULL
         ORDER BY p.created_at DESC
         LIMIT ?
         """,
@@ -151,9 +151,9 @@ async def get_my_posts(
     
     offset = (page - 1) * limit
     
-    # 查询该管理员的私有文章
+    # 查询该管理员的私有文章（排除已删除的）
     total_result = await db.first(
-        "SELECT COUNT(*) as count FROM posts WHERE user_id = ? AND is_public = 0",
+        "SELECT COUNT(*) as count FROM posts WHERE user_id = ? AND is_public = 0 AND deleted_at IS NULL",
         [user_id]
     )
     total = total_result["count"] if total_result else 0
@@ -163,7 +163,7 @@ async def get_my_posts(
         SELECT p.*, c.name as category_name, c.slug as category_slug
         FROM posts p
         LEFT JOIN categories c ON c.id = p.category_id
-        WHERE p.user_id = ? AND p.is_public = 0
+        WHERE p.user_id = ? AND p.is_public = 0 AND p.deleted_at IS NULL
         ORDER BY p.created_at DESC
         LIMIT ? OFFSET ?
         """,
@@ -356,18 +356,111 @@ async def update_post(request: Request, id: int) -> dict:
 
 @router.delete("/{id}")
 async def delete_post(request: Request, id: int) -> dict:
-    """删除文章"""
+    """删除文章 (移入回收站)"""
     # 检查管理员权限
     await require_admin(request)
 
-    await db.execute("DELETE FROM posts WHERE id = ?", [id])
+    # 软删除：设置 deleted_at 时间戳
+    await db.execute(
+        "UPDATE posts SET deleted_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL",
+        [id]
+    )
 
-    return {"code": 200, "msg": "删除成功"}
+    return {"code": 200, "msg": "文章已移入回收站"}
+
+
+@router.get("/trash/list")
+async def get_trash_posts(
+    request: Request,
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=100),
+) -> dict:
+    """获取回收站文章列表 (管理员专用)"""
+    # 检查管理员权限
+    await require_admin(request)
+    
+    offset = (page - 1) * limit
+    
+    # 查询回收站文章
+    total_result = await db.first(
+        "SELECT COUNT(*) as count FROM posts WHERE deleted_at IS NOT NULL"
+    )
+    total = total_result["count"] if total_result else 0
+    
+    posts = await db.select(
+        """
+        SELECT p.*, c.name as category_name
+        FROM posts p
+        LEFT JOIN categories c ON c.id = p.category_id
+        WHERE p.deleted_at IS NOT NULL
+        ORDER BY p.deleted_at DESC
+        LIMIT ? OFFSET ?
+        """,
+        [limit, offset]
+    )
+    
+    return {
+        "code": 200,
+        "data": {
+            "items": posts,
+            "total": total,
+            "page": page,
+            "limit": limit,
+        },
+    }
+
+
+@router.post("/{id}/restore")
+async def restore_post(request: Request, id: int) -> dict:
+    """恢复已删除的文章 (管理员专用)"""
+    # 检查管理员权限
+    await require_admin(request)
+    
+    # 检查文章是否存在且已删除
+    post = await db.first(
+        "SELECT * FROM posts WHERE id = ? AND deleted_at IS NOT NULL",
+        [id]
+    )
+    if not post:
+        raise HTTPException(status_code=404, detail="文章不存在或未删除")
+    
+    # 恢复文章
+    await db.execute(
+        "UPDATE posts SET deleted_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [id]
+    )
+    
+    return {"code": 200, "msg": "文章已恢复"}
+
+
+@router.delete("/{id}/permanent")
+async def permanent_delete_post(request: Request, id: int) -> dict:
+    """永久删除文章 (管理员专用)"""
+    # 检查管理员权限
+    await require_admin(request)
+    
+    # 检查文章是否存在
+    post = await db.first("SELECT * FROM posts WHERE id = ?", [id])
+    if not post:
+        raise HTTPException(status_code=404, detail="文章不存在")
+    
+    # 先删除关联的标签
+    await db.execute("DELETE FROM post_tags WHERE post_id = ?", [id])
+    
+    # 永久删除
+    await db.execute("DELETE FROM posts WHERE id = ?", [id])
+    
+    return {"code": 200, "msg": "文章已永久删除"}
 
 
 @router.post("/{id}/like")
 async def like_post(request: Request, id: int) -> dict:
     """点赞文章"""
+    # 检查文章是否存在且未删除
+    post = await db.first("SELECT id FROM posts WHERE id = ? AND deleted_at IS NULL", [id])
+    if not post:
+        raise HTTPException(status_code=404, detail="文章不存在")
+    
     # 增加点赞数
     await db.execute("UPDATE posts SET like_count = like_count + 1 WHERE id = ?", [id])
     
