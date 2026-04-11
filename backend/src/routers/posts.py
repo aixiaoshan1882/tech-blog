@@ -208,7 +208,22 @@ async def get_my_posts(
 
 @router.get("/{slug}")
 async def get_post(request: Request, slug: str) -> dict:
-    """获取文章详情"""
+    """获取文章详情 - 需要在 /{slug} 路由之前匹配特殊路径"""
+    
+    # 特殊路径重定向到正确的处理器
+    # 由于 FastAPI 路由顺序问题，需要在这里处理
+    if slug == "rankings":
+        return await get_post_rankings(request)
+    elif slug == "top":
+        # get_top_posts 需要 period 参数
+        return await get_top_posts(period="views")
+    elif slug == "trash":
+        raise HTTPException(status_code=404, detail="请使用 /api/posts/trash/list")
+    elif slug == "scheduled":
+        raise HTTPException(status_code=404, detail="请使用 /api/posts/scheduled/list")
+    elif slug == "favorites":
+        raise HTTPException(status_code=404, detail="请使用 /api/posts/favorites/mine")
+    
     user_id = getattr(request.state, "user_id", None)
     
     # 检查是否为管理员
