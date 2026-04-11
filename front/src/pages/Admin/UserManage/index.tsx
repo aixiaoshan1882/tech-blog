@@ -33,8 +33,8 @@ export default function UserManage() {
       if (roleFilter) params.append('role', roleFilter)
       
       const res = await api.get(`/users?${params}`) as any
-      setUsers(res.data.items)
-      setTotal(res.data.total)
+      setUsers(res.items)
+      setTotal(res.total)
     } catch (error) {
       console.error('获取用户列表失败', error)
     }

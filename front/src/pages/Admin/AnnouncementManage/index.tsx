@@ -36,7 +36,7 @@ export default function AnnouncementManage() {
     setLoading(true)
     try {
       const res = await api.get('/announcements/all') as any
-      setAnnouncements(res.data.items)
+      setAnnouncements(res.items)
     } catch (error) {
       console.error('获取公告失败', error)
     }

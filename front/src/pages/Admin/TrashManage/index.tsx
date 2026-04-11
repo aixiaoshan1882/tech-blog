@@ -25,8 +25,8 @@ export default function TrashManage() {
     setLoading(true)
     try {
       const res = await api.get(`/posts/trash/list?page=${page}&limit=10`) as any
-      setPosts(res.data.items)
-      setTotal(res.data.total)
+      setPosts(res.items)
+      setTotal(res.total)
     } catch (error) {
       console.error('获取回收站失败', error)
     }

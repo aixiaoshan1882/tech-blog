@@ -31,8 +31,8 @@ export default function LogManage() {
     setLoading(true)
     try {
       const res = await api.get(`/logs?page=${page}&limit=20`) as any
-      setLogs(res.data.items)
-      setTotal(res.data.total)
+      setLogs(res.items)
+      setTotal(res.total)
     } catch (error) {
       console.error('获取日志失败', error)
     }
