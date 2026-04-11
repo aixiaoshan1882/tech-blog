@@ -1,6 +1,7 @@
 """评论路由"""
 from fastapi import APIRouter, Request, HTTPException, Query
 from ..database import db
+from ..utils.sanitize import sanitize_html
 
 router = APIRouter(prefix="/comments", tags=["评论"])
 
@@ -89,12 +90,29 @@ async def create_comment(request: Request, slug: str) -> dict:
     if not nickname or not content:
         raise HTTPException(status_code=400, detail="缺少必要参数")
 
+    # XSS 防护 - 清理用户输入
+    nickname = sanitize_html(nickname)[:50]  # 限制长度
+    content = sanitize_html(content)[:2000]   # 限制长度
+    email = sanitize_html(email)[:100] if email else None
+
     result = await db.execute(
         "INSERT INTO comments (post_id, parent_id, nickname, email, content) VALUES (?, ?, ?, ?, ?)",
         [post_id, parent_id, nickname, email, content],
     )
 
     return {"code": 200, "msg": "评论成功", "data": {"id": result.get("last_row_id")}}
+
+
+@router.delete("/{id}")
+async def delete_comment(request: Request, id: int) -> dict:
+    """删除评论"""
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="未登录")
+
+    await db.execute("DELETE FROM comments WHERE id = ?", [id])
+
+    return {"code": 200, "msg": "删除成功"}
 
 
 @router.delete("/{id}")

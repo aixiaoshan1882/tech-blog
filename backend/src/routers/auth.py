@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, HTTPException
 from ..database import db
 from ..schemas import UserCreate, UserLogin, UserResponse
 from ..utils.auth import hash_password, verify_password, create_token
+from ..utils.sanitize import validate_email, validate_password
 
 router = APIRouter(prefix="/auth", tags=["认证"])
 
@@ -19,6 +20,15 @@ async def register(request: Request) -> dict:
     # 验证必填字段
     if not email or not password or not nickname:
         raise HTTPException(status_code=400, detail="缺少必要参数")
+
+    # 验证邮箱格式
+    if not validate_email(email):
+        raise HTTPException(status_code=400, detail="邮箱格式不正确")
+
+    # 验证密码强度
+    valid, msg = validate_password(password)
+    if not valid:
+        raise HTTPException(status_code=400, detail=msg)
 
     # 检查邮箱是否已注册
     existing = await db.first("SELECT id FROM users WHERE email = ?", [email])
