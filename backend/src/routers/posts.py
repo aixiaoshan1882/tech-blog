@@ -63,17 +63,28 @@ async def get_posts(
 
     # 查询列表
     query = f"""
-        SELECT p.*, c.name as category_name, c.slug as category_slug
+        SELECT p.*, 
+               c.name as category_name, c.slug as category_slug,
+               u.nickname as author_nickname, u.avatar as author_avatar, u.email as author_email
         FROM posts p
         LEFT JOIN categories c ON c.id = p.category_id
+        LEFT JOIN users u ON u.id = p.user_id
         WHERE {where_sql}
         ORDER BY p.created_at DESC
         LIMIT ? OFFSET ?
     """
     posts = await db.select(query, params + [limit, offset])
 
-    # 获取标签
+    # 处理作者信息和标签
     for post in posts:
+        # 构建作者对象
+        post["author"] = {
+            "id": post.pop("user_id", None),
+            "nickname": post.pop("author_nickname", None) or "匿名用户",
+            "avatar": post.pop("author_avatar", None) or "/avatars/default.png",
+            "email": post.pop("author_email", None),
+        }
+        # 获取标签
         tags = await db.select(
             "SELECT t.* FROM tags t JOIN post_tags pt ON pt.tag_id = t.id WHERE pt.post_id = ?",
             [post["id"]],
@@ -104,9 +115,12 @@ async def get_hot_posts(
     """获取热门文章（按浏览量排序，只显示公开文章）"""
     posts = await db.select(
         """
-        SELECT p.*, c.name as category_name, c.slug as category_slug
+        SELECT p.*, 
+               c.name as category_name, c.slug as category_slug,
+               u.nickname as author_nickname, u.avatar as author_avatar
         FROM posts p
         LEFT JOIN categories c ON c.id = p.category_id
+        LEFT JOIN users u ON u.id = p.user_id
         WHERE p.is_public = 1 AND p.deleted_at IS NULL
         ORDER BY p.view_count DESC, p.created_at DESC
         LIMIT ?
@@ -115,6 +129,12 @@ async def get_hot_posts(
     )
     
     for post in posts:
+        # 构建作者对象
+        post["author"] = {
+            "id": post.pop("user_id", None),
+            "nickname": post.pop("author_nickname", None) or "匿名用户",
+            "avatar": post.pop("author_avatar", None) or "/avatars/default.png",
+        }
         tags = await db.select(
             "SELECT t.* FROM tags t JOIN post_tags pt ON pt.tag_id = t.id WHERE pt.post_id = ?",
             [post["id"]],
@@ -131,9 +151,12 @@ async def get_latest_posts(
     """获取最新文章（只显示公开文章）"""
     posts = await db.select(
         """
-        SELECT p.*, c.name as category_name, c.slug as category_slug
+        SELECT p.*, 
+               c.name as category_name, c.slug as category_slug,
+               u.nickname as author_nickname, u.avatar as author_avatar
         FROM posts p
         LEFT JOIN categories c ON c.id = p.category_id
+        LEFT JOIN users u ON u.id = p.user_id
         WHERE p.is_public = 1 AND p.deleted_at IS NULL
         ORDER BY p.created_at DESC
         LIMIT ?
@@ -142,6 +165,12 @@ async def get_latest_posts(
     )
     
     for post in posts:
+        # 构建作者对象
+        post["author"] = {
+            "id": post.pop("user_id", None),
+            "nickname": post.pop("author_nickname", None) or "匿名用户",
+            "avatar": post.pop("author_avatar", None) or "/avatars/default.png",
+        }
         tags = await db.select(
             "SELECT t.* FROM tags t JOIN post_tags pt ON pt.tag_id = t.id WHERE pt.post_id = ?",
             [post["id"]],
@@ -232,12 +261,15 @@ async def get_post(request: Request, slug: str) -> dict:
         user = await get_user_by_id(user_id)
         is_admin = user and user.get("role") == "admin"
     
-    # 查询文章
+    # 查询文章（包含作者信息）
     post = await db.first(
         """
-        SELECT p.*, c.name as category_name, c.slug as category_slug
+        SELECT p.*, 
+               c.name as category_name, c.slug as category_slug,
+               u.nickname as author_nickname, u.avatar as author_avatar, u.email as author_email
         FROM posts p
         LEFT JOIN categories c ON c.id = p.category_id
+        LEFT JOIN users u ON u.id = p.user_id
         WHERE p.slug = ?
         """,
         [slug],
@@ -245,6 +277,14 @@ async def get_post(request: Request, slug: str) -> dict:
 
     if not post:
         raise HTTPException(status_code=404, detail="文章不存在")
+    
+    # 构建作者对象
+    post["author"] = {
+        "id": post.pop("user_id", None),
+        "nickname": post.pop("author_nickname", None) or "匿名用户",
+        "avatar": post.pop("author_avatar", None) or "/avatars/default.png",
+        "email": post.pop("author_email", None),
+    }
 
     # 检查访问权限
     # 公开文章：所有人都可以访问
@@ -253,7 +293,7 @@ async def get_post(request: Request, slug: str) -> dict:
         if not user_id:
             raise HTTPException(status_code=403, detail="无权访问")
         # 非作者且非管理员无权访问
-        if post["user_id"] != user_id and not is_admin:
+        if post["author"]["id"] != user_id and not is_admin:
             raise HTTPException(status_code=403, detail="无权访问")
 
     # 增加浏览量
