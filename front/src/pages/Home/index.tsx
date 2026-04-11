@@ -106,24 +106,24 @@ export default function Home() {
           <div className="absolute bottom-10 right-10 w-96 h-96 bg-pink-400 rounded-full blur-3xl" />
         </div>
         
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 lg:py-24">
           <div className="text-center">
-            <h1 className="text-5xl md:text-6xl font-bold mb-6 animate-fade-in">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 animate-fade-in">
               💻 技术笔记博客
             </h1>
-            <p className="text-xl text-blue-100 mb-10 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl text-blue-100 mb-6 sm:mb-8 md:mb-10 max-w-2xl mx-auto leading-relaxed px-4">
               分享技术心得与实战经验，记录成长的每一步
             </p>
-            <div className="flex flex-wrap justify-center gap-4">
+            <div className="flex flex-wrap justify-center gap-3 sm:gap-4 px-4">
               <Link
                 to="/search"
-                className="px-8 py-4 bg-white text-blue-600 rounded-xl font-semibold hover:bg-blue-50 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+                className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-white text-blue-600 rounded-xl font-semibold hover:bg-blue-50 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
               >
                 🔍 探索文章
               </Link>
               <Link
                 to="/register"
-                className="px-8 py-4 bg-blue-500 bg-opacity-20 backdrop-blur-sm text-white rounded-xl font-semibold border border-white border-opacity-30 hover:bg-opacity-30 transition-all duration-300"
+                className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-blue-500 bg-opacity-20 backdrop-blur-sm text-white rounded-xl font-semibold border border-white border-opacity-30 hover:bg-opacity-30 transition-all duration-300"
               >
                 ✨ 加入我们
               </Link>
@@ -141,38 +141,38 @@ export default function Home() {
 
       {/* Stats Section */}
       {stats && (
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-10">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-4">
-              <div className="text-3xl md:text-4xl font-bold text-blue-600">{stats.totalPosts}</div>
-              <div className="text-sm text-gray-500 mt-1">📝 文章</div>
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 sm:-mt-10 relative z-10">
+          <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-lg sm:shadow-xl p-4 sm:p-6 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+            <div className="text-center p-3 sm:p-4">
+              <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-600">{stats.totalPosts}</div>
+              <div className="text-xs sm:text-sm text-gray-500 mt-1">📝 文章</div>
             </div>
-            <div className="text-center p-4 border-l border-gray-200 dark:border-gray-700">
-              <div className="text-3xl md:text-4xl font-bold text-green-600">{stats.totalViews}</div>
-              <div className="text-sm text-gray-500 mt-1">👁 阅读</div>
+            <div className="text-center p-3 sm:p-4 border-t sm:border-t-0 sm:border-l border-gray-100 dark:border-gray-700">
+              <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-green-600">{stats.totalViews}</div>
+              <div className="text-xs sm:text-sm text-gray-500 mt-1">👁 阅读</div>
             </div>
-            <div className="text-center p-4 border-l border-gray-200 dark:border-gray-700">
-              <div className="text-3xl md:text-4xl font-bold text-purple-600">{stats.totalComments}</div>
-              <div className="text-sm text-gray-500 mt-1">💬 评论</div>
+            <div className="text-center p-3 sm:p-4 border-t sm:border-t-0 sm:border-l border-gray-100 dark:border-gray-700">
+              <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-purple-600">{stats.totalComments}</div>
+              <div className="text-xs sm:text-sm text-gray-500 mt-1">💬 评论</div>
             </div>
-            <div className="text-center p-4 border-l border-gray-200 dark:border-gray-700">
-              <div className="text-3xl md:text-4xl font-bold text-orange-600">{stats.totalCategories + stats.totalTags}</div>
-              <div className="text-sm text-gray-500 mt-1">🏷️ 标签</div>
+            <div className="text-center p-3 sm:p-4 border-t sm:border-t-0 sm:border-l border-gray-100 dark:border-gray-700">
+              <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-orange-600">{stats.totalCategories + stats.totalTags}</div>
+              <div className="text-xs sm:text-sm text-gray-500 mt-1">🏷️ 标签</div>
             </div>
           </div>
         </section>
       )}
 
       {/* Featured Posts */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="flex items-center justify-between mb-8">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
+        <div className="flex items-center justify-between mb-4 sm:mb-6 lg:mb-8">
           <div>
-            <h2 className="text-2xl font-bold">✨ 最新文章</h2>
-            <p className="text-gray-500 mt-1">发现最新最热门的技术内容</p>
+            <h2 className="text-xl sm:text-2xl font-bold">✨ 最新文章</h2>
+            <p className="text-gray-500 mt-1 hidden sm:block">发现最新最热门的技术内容</p>
           </div>
           <Link 
             to="/search" 
-            className="px-4 py-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+            className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
           >
             查看全部 →
           </Link>
@@ -244,26 +244,26 @@ export default function Home() {
       </section>
 
       {/* Categories */}
-      <section className="bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-indigo-900 py-16">
+      <section className="bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-indigo-900 py-8 sm:py-12 lg:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl font-bold">📂 分类浏览</h2>
-            <p className="text-gray-500 mt-2">按分类探索你感兴趣的内容</p>
+          <div className="text-center mb-6 sm:mb-8 lg:mb-10">
+            <h2 className="text-xl sm:text-2xl font-bold">📂 分类浏览</h2>
+            <p className="text-gray-500 mt-2 hidden sm:block">按分类探索你感兴趣的内容</p>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-4">
             {categories.map((cat) => (
               <Link
                 key={cat.id}
                 to={`/category/${cat.slug}`}
-                className="bg-white dark:bg-gray-800 p-6 rounded-2xl hover:shadow-lg transition-all duration-300 group text-center"
+                className="bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-xl sm:rounded-2xl hover:shadow-lg transition-all duration-300 group text-center"
               >
-                <div className="text-4xl mb-3">
+                <div className="text-3xl sm:text-4xl mb-2 sm:mb-3">
                   {categoryIcons[cat.slug] || categoryIcons.default}
                 </div>
-                <h3 className="font-semibold group-hover:text-blue-600 transition-colors mb-1">
+                <h3 className="font-semibold group-hover:text-blue-600 transition-colors mb-1 text-sm sm:text-base">
                   {cat.name}
                 </h3>
-                <p className="text-sm text-gray-500">
+                <p className="text-xs sm:text-sm text-gray-500">
                   {cat.post_count} 篇
                 </p>
               </Link>
@@ -273,32 +273,32 @@ export default function Home() {
       </section>
 
       {/* Latest Posts Sidebar Style */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
           {/* Latest Posts */}
           <div className="lg:col-span-2">
-            <h2 className="text-2xl font-bold mb-6">🕐 最新动态</h2>
-            <div className="space-y-4">
+            <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">🕐 最新动态</h2>
+            <div className="space-y-2 sm:space-y-4">
               {latestPosts.map((post, index) => (
                 <Link
                   key={post.id}
                   to={`/post/${post.slug}`}
-                  className="flex gap-4 p-4 bg-white dark:bg-gray-800 rounded-xl hover:shadow-md transition-all duration-300 group"
+                  className="flex gap-3 sm:gap-4 p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-xl hover:shadow-md transition-all duration-300 group"
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold">
+                  <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-sm sm:text-base">
                     {index + 1}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold group-hover:text-blue-600 transition-colors truncate mb-1">
+                    <h3 className="font-semibold group-hover:text-blue-600 transition-colors truncate mb-1 text-sm sm:text-base">
                       {post.title}
                     </h3>
-                    <div className="flex items-center gap-3 text-sm text-gray-500">
-                      <span>{post.category_name}</span>
-                      <span>•</span>
+                    <div className="flex items-center gap-1 sm:gap-3 text-xs sm:text-sm text-gray-500">
+                      <span className="hidden xs:inline">{post.category_name}</span>
+                      <span className="hidden sm:inline">•</span>
                       <span>{formatDate(post.created_at)}</span>
-                      <span>•</span>
-                      <span>👁 {post.view_count}</span>
+                      <span className="hidden sm:inline">•</span>
+                      <span className="hidden sm:inline">👁 {post.view_count}</span>
                     </div>
                   </div>
                 </Link>
@@ -308,39 +308,39 @@ export default function Home() {
 
           {/* Quick Links */}
           <div>
-            <h2 className="text-2xl font-bold mb-6">🔗 快捷入口</h2>
-            <div className="space-y-3">
+            <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">🔗 快捷入口</h2>
+            <div className="space-y-2 sm:space-y-3">
               <Link
                 to="/search"
-                className="flex items-center gap-3 p-4 bg-white dark:bg-gray-800 rounded-xl hover:shadow-md transition-all group"
+                className="flex items-center gap-3 p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-xl hover:shadow-md transition-all group"
               >
-                <span className="text-2xl">🔍</span>
-                <span className="font-medium group-hover:text-blue-600 transition-colors">搜索文章</span>
+                <span className="text-xl sm:text-2xl">🔍</span>
+                <span className="font-medium group-hover:text-blue-600 transition-colors text-sm sm:text-base">搜索文章</span>
               </Link>
               <Link
                 to="/register"
-                className="flex items-center gap-3 p-4 bg-white dark:bg-gray-800 rounded-xl hover:shadow-md transition-all group"
+                className="flex items-center gap-3 p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-xl hover:shadow-md transition-all group"
               >
-                <span className="text-2xl">✍️</span>
-                <span className="font-medium group-hover:text-blue-600 transition-colors">成为作者</span>
+                <span className="text-xl sm:text-2xl">✍️</span>
+                <span className="font-medium group-hover:text-blue-600 transition-colors text-sm sm:text-base">成为作者</span>
               </Link>
               <Link
                 to="/login"
-                className="flex items-center gap-3 p-4 bg-white dark:bg-gray-800 rounded-xl hover:shadow-md transition-all group"
+                className="flex items-center gap-3 p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-xl hover:shadow-md transition-all group"
               >
-                <span className="text-2xl">🔑</span>
-                <span className="font-medium group-hover:text-blue-600 transition-colors">登录账号</span>
+                <span className="text-xl sm:text-2xl">🔑</span>
+                <span className="font-medium group-hover:text-blue-600 transition-colors text-sm sm:text-base">登录账号</span>
               </Link>
             </div>
 
             {/* Tags Cloud */}
-            <h3 className="text-xl font-bold mt-8 mb-4">🏷️ 热门标签</h3>
+            <h3 className="text-lg sm:text-xl font-bold mt-6 sm:mt-8 mb-3 sm:mb-4">🏷️ 热门标签</h3>
             <div className="flex flex-wrap gap-2">
               {['JavaScript', 'Python', 'React', 'TypeScript', 'Docker', 'Git'].map((tag) => (
                 <Link
                   key={tag}
                   to={`/tag/${tag.toLowerCase()}`}
-                  className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-sm hover:bg-blue-100 hover:text-blue-600 transition-colors"
+                  className="px-2 sm:px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-xs sm:text-sm hover:bg-blue-100 hover:text-blue-600 transition-colors"
                 >
                   {tag}
                 </Link>
@@ -351,15 +351,15 @@ export default function Home() {
       </section>
 
       {/* CTA */}
-      <section className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white py-16">
+      <section className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white py-10 sm:py-16">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold mb-4">准备好分享你的技术见解了吗？ 🚀</h2>
-          <p className="text-blue-100 mb-8 text-lg">
-            加入我们的社区，发表你的第一篇文章，与志同道合的人一起成长
+          <h2 className="text-2xl sm:text-3xl font-bold mb-3 sm:mb-4">准备好分享你的技术见解了吗？ 🚀</h2>
+          <p className="text-blue-100 mb-6 sm:mb-8 text-base sm:text-lg px-4">
+            加入我们的社区，发表你的第一篇文章
           </p>
           <Link
             to="/register"
-            className="inline-block px-10 py-4 bg-white text-blue-600 rounded-xl font-semibold hover:bg-blue-50 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+            className="inline-block px-6 sm:px-10 py-3 sm:py-4 bg-white text-blue-600 rounded-xl font-semibold hover:bg-blue-50 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
           >
             开始写作 ✨
           </Link>
