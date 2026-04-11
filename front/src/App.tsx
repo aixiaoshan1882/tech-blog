@@ -8,13 +8,17 @@ import Search from '@/pages/Search'
 import Login from '@/pages/Login'
 import Register from '@/pages/Register'
 import AdminLayout from '@/pages/Admin/layout'
-import AdminDashboard from '@/pages/Admin'
+import Dashboard from '@/pages/Admin/Dashboard'
 import PostList from '@/pages/Admin/PostList'
 import PostEdit from '@/pages/Admin/PostEdit'
 import CategoryManage from '@/pages/Admin/CategoryManage'
 import TagManage from '@/pages/Admin/TagManage'
 import CommentManage from '@/pages/Admin/CommentManage'
 import ProtectedRoute from '@/pages/Admin/ProtectedRoute'
+import UserManage from '@/pages/Admin/UserManage'
+import AnnouncementManage from '@/pages/Admin/AnnouncementManage'
+import LogManage from '@/pages/Admin/LogManage'
+import TrashManage from '@/pages/Admin/TrashManage'
 
 export default function App() {
   return (
@@ -40,13 +44,18 @@ export default function App() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<AdminDashboard />} />
+          <Route index element={<Dashboard />} />
           <Route path="posts" element={<PostList />} />
           <Route path="posts/new" element={<PostEdit />} />
           <Route path="posts/:id/edit" element={<PostEdit />} />
           <Route path="categories" element={<CategoryManage />} />
           <Route path="tags" element={<TagManage />} />
           <Route path="comments" element={<CommentManage />} />
+          <Route path="users" element={<UserManage />} />
+          <Route path="announcements" element={<AnnouncementManage />} />
+          <Route path="logs" element={<LogManage />} />
+          <Route path="trash" element={<TrashManage />} />
+          <Route path="dashboard" element={<Dashboard />} />
         </Route>
 
         {/* 404 */}

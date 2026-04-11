@@ -9,9 +9,13 @@ import { useStoreSelector } from '@/hooks/useStore'
 const navItems = [
   { path: '/admin', label: '仪表盘', icon: '📊' },
   { path: '/admin/posts', label: '文章管理', icon: '📝' },
+  { path: '/admin/trash', label: '回收站', icon: '🗑️' },
   { path: '/admin/categories', label: '分类管理', icon: '📁' },
   { path: '/admin/tags', label: '标签管理', icon: '🏷️' },
   { path: '/admin/comments', label: '评论管理', icon: '💬' },
+  { path: '/admin/announcements', label: '公告管理', icon: '📢' },
+  { path: '/admin/users', label: '用户管理', icon: '👥' },
+  { path: '/admin/logs', label: '操作日志', icon: '📋' },
 ]
 
 export default function AdminLayout() {
