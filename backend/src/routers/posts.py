@@ -4,6 +4,7 @@ from typing import Optional
 from ..database import db
 from .auth import require_admin, get_user_by_id
 from ..utils.sanitize import sanitize_html
+from ..utils.cache import cache
 
 router = APIRouter(prefix="/posts", tags=["文章"])
 
@@ -16,15 +17,25 @@ async def get_posts(
     category: Optional[str] = None,
     tag: Optional[str] = None,
 ) -> dict:
-    """获取文章列表"""
-    offset = (page - 1) * limit
-    user_id = getattr(request.state, "user_id", None)
+    """获取文章列表 (带缓存)"""
+    # 生成缓存 key (基于查询参数)
+    cache_key = f"posts:page:{page}:limit:{limit}:cat:{category or ''}:tag:{tag or ''}"
     
-    # 检查是否为管理员
+    # 尝试从缓存获取 (仅对非管理员公开列表)
+    user_id = getattr(request.state, "user_id", None)
     is_admin = False
     if user_id:
         user = await get_user_by_id(user_id)
         is_admin = user and user.get("role") == "admin"
+    
+    # 非管理员使用缓存
+    if not is_admin:
+        cached_data = cache.get(cache_key)
+        if cached_data:
+            return cached_data
+    
+    # 无缓存，执行数据库查询
+    offset = (page - 1) * limit
 
     # 构建查询条件
     where_clauses = ["p.deleted_at IS NULL"]
@@ -68,7 +79,7 @@ async def get_posts(
         )
         post["tags"] = tags
 
-    return {
+    result = {
         "code": 200,
         "data": {
             "items": posts,
@@ -77,6 +88,12 @@ async def get_posts(
             "limit": limit,
         },
     }
+    
+    # 缓存结果 (非管理员公开列表缓存 60 秒)
+    if not is_admin:
+        cache.set(cache_key, result, expire=60)
+    
+    return result
 
 
 @router.get("/hot")
@@ -375,6 +392,9 @@ async def create_post(request: Request) -> dict:
             "INSERT INTO post_tags (post_id, tag_id) VALUES (?, ?)",
             [post_id, tag_id],
         )
+    
+    # 清除文章列表缓存
+    cache.clear_pattern("posts:*")
 
     return {"code": 200, "msg": "创建成功", "data": {"id": post_id, "is_public": is_public}}
 
@@ -421,6 +441,9 @@ async def update_post(request: Request, id: int) -> dict:
 
     await db.execute(f"UPDATE posts SET {', '.join(updates)} WHERE id = ?", params)
 
+    # 清除文章列表缓存
+    cache.clear_pattern("posts:*")
+
     # 更新标签
     if "tag_ids" in body:
         await db.execute("DELETE FROM post_tags WHERE post_id = ?", [id])
@@ -444,6 +467,9 @@ async def delete_post(request: Request, id: int) -> dict:
         "UPDATE posts SET deleted_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL",
         [id]
     )
+    
+    # 清除文章列表缓存
+    cache.clear_pattern("posts:*")
 
     return {"code": 200, "msg": "文章已移入回收站"}
 
@@ -509,6 +535,9 @@ async def restore_post(request: Request, id: int) -> dict:
         [id]
     )
     
+    # 清除文章列表缓存
+    cache.clear_pattern("posts:*")
+    
     return {"code": 200, "msg": "文章已恢复"}
 
 
@@ -528,6 +557,9 @@ async def permanent_delete_post(request: Request, id: int) -> dict:
     
     # 永久删除
     await db.execute("DELETE FROM posts WHERE id = ?", [id])
+    
+    # 清除文章列表缓存
+    cache.clear_pattern("posts:*")
     
     return {"code": 200, "msg": "文章已永久删除"}
 
