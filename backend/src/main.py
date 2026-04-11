@@ -3,6 +3,8 @@ import os
 from datetime import datetime
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 from .config import config
 from .database import db
 from .routers import (
@@ -15,6 +17,7 @@ from .routers import (
     stats_router,
 )
 from .utils.auth import decode_token
+from .utils.ratelimit import api_limiter
 
 # 创建 FastAPI 应用
 app = FastAPI(
@@ -23,7 +26,20 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# 安全中间件 - 隐藏服务器信息
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        # 隐藏服务器信息
+        response.headers["Server"] = "WebServer"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        return response
+
+
 # CORS 中间件
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=config.CORS_ORIGINS,

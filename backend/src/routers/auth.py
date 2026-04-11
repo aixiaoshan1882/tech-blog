@@ -1,12 +1,22 @@
 """认证路由"""
 from typing import Optional
 from fastapi import APIRouter, Request, HTTPException
+from fastapi.responses import JSONResponse
 from ..database import db
 from ..schemas import UserCreate, UserLogin, UserResponse
 from ..utils.auth import hash_password, verify_password, create_token
 from ..utils.sanitize import validate_email, validate_password
+from ..utils.ratelimit import login_limiter
 
 router = APIRouter(prefix="/auth", tags=["认证"])
+
+
+def get_client_ip(request: Request) -> str:
+    """获取客户端 IP"""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
 
 
 @router.post("/register")
@@ -58,6 +68,18 @@ async def register(request: Request) -> dict:
 @router.post("/login")
 async def login(request: Request) -> dict:
     """用户登录"""
+    client_ip = get_client_ip(request)
+    
+    # 速率限制检查
+    allowed, remaining = login_limiter.is_allowed(client_ip)
+    if not allowed:
+        retry_after = login_limiter.get_retry_after(client_ip)
+        return JSONResponse(
+            status_code=429,
+            content={"detail": f"请求过于频繁，请 {retry_after} 秒后重试"},
+            headers={"Retry-After": str(retry_after)}
+        )
+    
     body = await request.json()
     email = body.get("email")
     password = body.get("password")
