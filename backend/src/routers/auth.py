@@ -8,7 +8,7 @@ from ..database import db
 from ..schemas import UserCreate, UserLogin, UserResponse
 from ..utils.auth import hash_password, verify_password, create_token
 from ..utils.sanitize import validate_email, validate_password, sanitize_html
-from ..utils.ratelimit import login_limiter, api_limiter
+from ..utils.ratelimit import login_limiter, api_limiter, register_limiter
 
 router = APIRouter(prefix="/auth", tags=["认证"])
 
@@ -45,6 +45,18 @@ async def require_admin(request: Request) -> dict:
 @router.post("/register")
 async def register(request: Request) -> dict:
     """用户注册"""
+    client_ip = get_client_ip(request)
+    
+    # 注册速率限制
+    allowed, remaining = register_limiter.is_allowed(client_ip)
+    if not allowed:
+        retry_after = register_limiter.get_retry_after(client_ip)
+        return JSONResponse(
+            status_code=429,
+            content={"detail": f"注册过于频繁，请 {retry_after} 秒后重试"},
+            headers={"Retry-After": str(retry_after)}
+        )
+    
     body = await request.json()
     email = body.get("email")
     password = body.get("password")

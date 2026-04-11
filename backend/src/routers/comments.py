@@ -1,7 +1,9 @@
 """评论路由"""
 from fastapi import APIRouter, Request, HTTPException, Query
+from fastapi.responses import JSONResponse
 from ..database import db
 from ..utils.sanitize import sanitize_html
+from ..utils.ratelimit import comment_limiter
 from .auth import require_admin, get_user_by_id
 
 router = APIRouter(prefix="/comments", tags=["评论"])
@@ -75,6 +77,18 @@ async def get_comments(request: Request, slug: str) -> dict:
 @router.post("/post/{slug}")
 async def create_comment(request: Request, slug: str) -> dict:
     """发表评论"""
+    client_ip = request.client.host if request.client else "unknown"
+    
+    # 评论速率限制
+    allowed, remaining = comment_limiter.is_allowed(client_ip)
+    if not allowed:
+        retry_after = comment_limiter.get_retry_after(client_ip)
+        return JSONResponse(
+            status_code=429,
+            content={"detail": f"评论过于频繁，请 {retry_after} 秒后重试"},
+            headers={"Retry-After": str(retry_after)}
+        )
+    
     # 获取文章ID
     post = await db.first("SELECT id, title, user_id FROM posts WHERE slug = ?", [slug])
     if not post:

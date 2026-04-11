@@ -46,5 +46,17 @@ class RateLimiter:
 
 
 # 全局限流器实例
-login_limiter = RateLimiter(max_requests=5, window_seconds=60)  # 登录: 60秒内最多5次
-api_limiter = RateLimiter(max_requests=100, window_seconds=60)  # API: 60秒内最多100次
+# 登录: 60秒内最多5次
+login_limiter = RateLimiter(max_requests=5, window_seconds=60)
+
+# API: 60秒内最多100次
+api_limiter = RateLimiter(max_requests=100, window_seconds=60)
+
+# 注册: 5分钟内最多3次
+register_limiter = RateLimiter(max_requests=3, window_seconds=300)
+
+# 搜索: 60秒内最多30次
+search_limiter = RateLimiter(max_requests=30, window_seconds=60)
+
+# 评论: 60秒内最多10次
+comment_limiter = RateLimiter(max_requests=10, window_seconds=60)
