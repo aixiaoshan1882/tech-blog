@@ -1,5 +1,6 @@
 """技术笔记博客后端 - 主入口"""
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,11 +27,21 @@ from .routers import (
 from .utils.auth import decode_token
 from .utils.ratelimit import api_limiter
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Ensure local development has a usable SQLite database."""
+    if not os.path.exists(config.DB_PATH):
+        db.init_database()
+    yield
+
+
 # 创建 FastAPI 应用
 app = FastAPI(
     title="技术笔记博客 API",
     description="技术笔记博客后端 API",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # 安全中间件 - 隐藏服务器信息

@@ -16,11 +16,16 @@ async def get_posts(
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=1, le=100),
     category: Optional[str] = None,
+    categoryId: Optional[int] = None,
     tag: Optional[str] = None,
+    tagId: Optional[int] = None,
 ) -> dict:
     """获取文章列表 (带缓存)"""
     # 生成缓存 key (基于查询参数)
-    cache_key = f"posts:page:{page}:limit:{limit}:cat:{category or ''}:tag:{tag or ''}"
+    cache_key = (
+        f"posts:page:{page}:limit:{limit}:cat:{category or categoryId or ''}:"
+        f"tag:{tag or tagId or ''}"
+    )
     
     # 尝试从缓存获取 (仅对非管理员公开列表)
     user_id = getattr(request.state, "user_id", None)
@@ -51,6 +56,27 @@ async def get_posts(
             "EXISTS (SELECT 1 FROM categories c WHERE c.slug = ? AND c.id = p.category_id)"
         )
         params.append(category)
+    elif categoryId:
+        where_clauses.append("p.category_id = ?")
+        params.append(categoryId)
+
+    if tag:
+        where_clauses.append(
+            """
+            EXISTS (
+                SELECT 1
+                FROM post_tags pt
+                JOIN tags t ON t.id = pt.tag_id
+                WHERE pt.post_id = p.id AND t.slug = ?
+            )
+            """
+        )
+        params.append(tag)
+    elif tagId:
+        where_clauses.append(
+            "EXISTS (SELECT 1 FROM post_tags pt WHERE pt.post_id = p.id AND pt.tag_id = ?)"
+        )
+        params.append(tagId)
 
     where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
 

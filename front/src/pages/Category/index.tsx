@@ -3,6 +3,7 @@
  */
 
 import { useParams, Link } from 'react-router-dom'
+import { useCallback } from 'react'
 import { useAsync } from '@/hooks/useStore'
 import { getCategory } from '@/api/categories'
 import { getPublishedPosts } from '@/api/posts'
@@ -28,10 +29,10 @@ export default function Category() {
     [slug]
   )
 
-  const fetchPosts = async (page: number, pageSize: number) => {
+  const fetchPosts = useCallback(async (page: number, pageSize: number) => {
     if (!category) return { items: [], total: 0 }
     return getPublishedPosts({ categoryId: category.id, page, pageSize })
-  }
+  }, [category])
 
   const { items: posts, loading: postsLoading, page, total, hasMore, nextPage, prevPage } = usePagination(
     fetchPosts,

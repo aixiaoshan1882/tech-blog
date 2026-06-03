@@ -9,7 +9,15 @@ router = APIRouter(prefix="/categories", tags=["分类"])
 @router.get("")
 async def get_categories() -> dict:
     """获取分类列表"""
-    categories = await db.select("SELECT * FROM categories ORDER BY id")
+    categories = await db.select(
+        """
+        SELECT c.*, COUNT(p.id) as post_count
+        FROM categories c
+        LEFT JOIN posts p ON p.category_id = c.id AND p.is_public = 1 AND p.deleted_at IS NULL
+        GROUP BY c.id
+        ORDER BY c.id
+        """
+    )
 
     # 构建树形结构
     category_map = {c["id"]: {**c, "children": []} for c in categories}
@@ -22,6 +30,32 @@ async def get_categories() -> dict:
             category_map[cat["parent_id"]]["children"].append(category_map[cat["id"]])
 
     return {"code": 200, "data": roots}
+
+
+@router.get("/{slug_or_id}")
+async def get_category(slug_or_id: str) -> dict:
+    """获取单个分类"""
+    if slug_or_id.isdigit():
+        where = "c.id = ?"
+        params = [int(slug_or_id)]
+    else:
+        where = "c.slug = ?"
+        params = [slug_or_id]
+
+    category = await db.first(
+        f"""
+        SELECT c.*, COUNT(p.id) as post_count
+        FROM categories c
+        LEFT JOIN posts p ON p.category_id = c.id AND p.is_public = 1 AND p.deleted_at IS NULL
+        WHERE {where}
+        GROUP BY c.id
+        """,
+        params,
+    )
+    if not category:
+        raise HTTPException(status_code=404, detail="分类不存在")
+
+    return {"code": 200, "data": category}
 
 
 @router.post("")

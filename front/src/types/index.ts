@@ -35,6 +35,7 @@ export interface Category {
   slug: string
   description?: string
   postCount?: number
+  children?: Category[]
 }
 
 export interface Tag {

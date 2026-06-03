@@ -22,7 +22,9 @@ export interface PostFilters {
   page?: number
   pageSize?: number
   categoryId?: number
+  categorySlug?: string
   tagId?: number
+  tagSlug?: string
   status?: string
   keyword?: string
 }
@@ -88,7 +90,9 @@ export async function getPosts(filters: PostFilters = {}): Promise<PaginatedResp
   const result = await api.get<{ items: RawPost[]; total: number; page: number; limit: number; hasMore: boolean }>('/posts', {
     page: String(filters.page || 1),
     limit: String(filters.pageSize || 10),
+    ...(filters.categorySlug && { category: filters.categorySlug }),
     ...(filters.categoryId && { categoryId: String(filters.categoryId) }),
+    ...(filters.tagSlug && { tag: filters.tagSlug }),
     ...(filters.tagId && { tagId: String(filters.tagId) }),
     ...(filters.status && { status: filters.status }),
     ...(filters.keyword && { keyword: filters.keyword }),

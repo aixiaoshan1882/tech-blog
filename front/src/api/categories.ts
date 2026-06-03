@@ -12,14 +12,24 @@ export interface CreateCategoryInput {
   parentId?: number
 }
 
+function transformCategory(raw: any): Category {
+  return {
+    ...raw,
+    postCount: raw.postCount ?? raw.post_count ?? 0,
+    children: raw.children?.map(transformCategory) ?? [],
+  }
+}
+
 // 获取所有分类
 export async function getCategories(): Promise<Category[]> {
-  return api.get('/categories')
+  const categories = await api.get<any[]>('/categories')
+  return categories.map(transformCategory)
 }
 
 // 获取单个分类
 export async function getCategory(slugOrId: string): Promise<Category> {
-  return api.get(`/categories/${slugOrId}`)
+  const category = await api.get<any>(`/categories/${slugOrId}`)
+  return transformCategory(category)
 }
 
 // 创建分类

@@ -24,10 +24,10 @@ export default function Search() {
   const [keyword, setKeyword] = useState(query)
   const [showHistory, setShowHistory] = useState(false)
 
-  const fetchPosts = async (page: number, pageSize: number) => {
+  const fetchPosts = useCallback(async (page: number, pageSize: number) => {
     if (!query) return { items: [], total: 0 }
     return search(query, page, pageSize)
-  }
+  }, [query])
 
   const { items: posts, loading, error, page, total, hasMore, nextPage, prevPage } = usePagination(
     fetchPosts,

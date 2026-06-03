@@ -3,6 +3,7 @@
  */
 
 import { useParams, Link } from 'react-router-dom'
+import { useCallback } from 'react'
 import { useAsync } from '@/hooks/useStore'
 import { getTag } from '@/api/tags'
 import { getPublishedPosts } from '@/api/posts'
@@ -17,10 +18,10 @@ export default function Tag() {
     [slug]
   )
 
-  const fetchPosts = async (page: number, pageSize: number) => {
+  const fetchPosts = useCallback(async (page: number, pageSize: number) => {
     if (!tag) return { items: [], total: 0 }
     return getPublishedPosts({ tagId: tag.id, page, pageSize })
-  }
+  }, [tag])
 
   const { items: posts, loading: postsLoading, page, total, hasMore, nextPage, prevPage } = usePagination(
     fetchPosts,

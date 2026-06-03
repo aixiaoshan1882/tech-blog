@@ -8,7 +8,16 @@ router = APIRouter(prefix="/tags", tags=["标签"])
 @router.get("")
 async def get_tags() -> dict:
     """获取标签列表"""
-    tags = await db.select("SELECT * FROM tags ORDER BY id")
+    tags = await db.select(
+        """
+        SELECT t.*, COUNT(p.id) as post_count
+        FROM tags t
+        LEFT JOIN post_tags pt ON pt.tag_id = t.id
+        LEFT JOIN posts p ON p.id = pt.post_id AND p.is_public = 1 AND p.deleted_at IS NULL
+        GROUP BY t.id
+        ORDER BY t.id
+        """
+    )
     return {"code": 200, "data": tags}
 
 
@@ -57,3 +66,30 @@ async def get_hot_tags(limit: int = 10) -> dict:
         [limit],
     )
     return {"code": 200, "data": tags}
+
+
+@router.get("/{slug_or_id}")
+async def get_tag(slug_or_id: str) -> dict:
+    """获取单个标签"""
+    if slug_or_id.isdigit():
+        where = "t.id = ?"
+        params = [int(slug_or_id)]
+    else:
+        where = "t.slug = ?"
+        params = [slug_or_id]
+
+    tag = await db.first(
+        f"""
+        SELECT t.*, COUNT(p.id) as post_count
+        FROM tags t
+        LEFT JOIN post_tags pt ON pt.tag_id = t.id
+        LEFT JOIN posts p ON p.id = pt.post_id AND p.is_public = 1 AND p.deleted_at IS NULL
+        WHERE {where}
+        GROUP BY t.id
+        """,
+        params,
+    )
+    if not tag:
+        raise HTTPException(status_code=404, detail="标签不存在")
+
+    return {"code": 200, "data": tag}
