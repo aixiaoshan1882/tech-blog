@@ -1,7 +1,6 @@
 """评论路由"""
-from fastapi import APIRouter, Request, HTTPException, Query, Body
+from fastapi import APIRouter, Request, HTTPException, Query
 from fastapi.responses import JSONResponse
-from pydantic import Field
 from ..database import db
 from ..utils.sanitize import sanitize_html
 from ..utils.ratelimit import comment_limiter
@@ -19,24 +18,43 @@ router = APIRouter(prefix="/comments", tags=["评论"])
 async def get_all_comments(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    postId: int = None,
+    status: str = None,
 ) -> dict:
     """获取所有评论（管理后台用）"""
     offset = (page - 1) * page_size
+    where_clauses = []
+    params = []
+
+    if postId:
+        where_clauses.append("c.post_id = ?")
+        params.append(postId)
+
+    if status == "approved":
+        where_clauses.append("c.is_approved = 1")
+    elif status in {"pending", "spam"}:
+        where_clauses.append("c.is_approved = 0")
+
+    where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
     
     # 查询评论及其关联文章
     comments = await db.select(
-        """
+        f"""
         SELECT c.*, p.title as post_title, p.slug as post_slug
         FROM comments c
         LEFT JOIN posts p ON c.post_id = p.id
+        WHERE {where_sql}
         ORDER BY c.created_at DESC
         LIMIT ? OFFSET ?
         """,
-        [page_size, offset],
+        params + [page_size, offset],
     )
     
     # 获取总数
-    total_result = await db.first("SELECT COUNT(*) as count FROM comments")
+    total_result = await db.first(
+        f"SELECT COUNT(*) as count FROM comments c WHERE {where_sql}",
+        params,
+    )
     total = total_result["count"] if total_result else 0
     
     return {
@@ -83,10 +101,35 @@ async def get_comments(request: Request, slug: str) -> dict:
 @router.post("/post/{slug}")
 async def create_comment(request: Request, slug: str) -> dict:
     """发表评论"""
+    # 获取文章ID
+    post = await db.first("SELECT id, title, user_id FROM posts WHERE slug = ?", [slug])
+    if not post:
+        raise HTTPException(status_code=404, detail="文章不存在")
+
+    body = await request.json()
+    return await _create_comment_for_post(request, post, body)
+
+
+@router.post("")
+async def create_comment_by_post_id(request: Request) -> dict:
+    """按文章 ID 发表评论"""
+    body = await request.json()
+    post_id = body.get("post_id")
+    if not post_id:
+        raise HTTPException(status_code=400, detail="缺少文章ID")
+
+    post = await db.first("SELECT id, title, user_id FROM posts WHERE id = ?", [post_id])
+    if not post:
+        raise HTTPException(status_code=404, detail="文章不存在")
+
+    return await _create_comment_for_post(request, post, body)
+
+
+async def _create_comment_for_post(request: Request, post: dict, body: dict) -> dict:
     client_ip = request.client.host if request.client else "unknown"
-    
+
     # 评论速率限制
-    allowed, remaining = comment_limiter.is_allowed(client_ip)
+    allowed, _ = comment_limiter.is_allowed(client_ip)
     if not allowed:
         retry_after = comment_limiter.get_retry_after(client_ip)
         return JSONResponse(
@@ -94,21 +137,20 @@ async def create_comment(request: Request, slug: str) -> dict:
             content={"detail": f"评论过于频繁，请 {retry_after} 秒后重试"},
             headers={"Retry-After": str(retry_after)}
         )
-    
-    # 获取文章ID
-    post = await db.first("SELECT id, title, user_id FROM posts WHERE slug = ?", [slug])
-    if not post:
-        raise HTTPException(status_code=404, detail="文章不存在")
 
     post_id = post["id"]
     post_title = post["title"]
     post_author_id = post.get("user_id")
+    user_id = getattr(request.state, "user_id", None)
+    user = await get_user_by_id(user_id) if user_id else None
 
-    body = await request.json()
     nickname = body.get("nickname")
     content = body.get("content")
     parent_id = body.get("parent_id", 0)
     email = body.get("email")
+    if user:
+        nickname = nickname or user.get("nickname")
+        email = email or user.get("email")
 
     # 验证必填字段
     if not nickname or not content:
@@ -134,8 +176,8 @@ async def create_comment(request: Request, slug: str) -> dict:
     email = sanitize_html(email)[:100] if email else None
 
     result = await db.execute(
-        "INSERT INTO comments (post_id, parent_id, nickname, email, content) VALUES (?, ?, ?, ?, ?)",
-        [post_id, parent_id, nickname, email, content],
+        "INSERT INTO comments (post_id, user_id, parent_id, nickname, email, content) VALUES (?, ?, ?, ?, ?, ?)",
+        [post_id, user_id, parent_id, nickname, email, content],
     )
     
     comment_id = result.get("last_row_id")

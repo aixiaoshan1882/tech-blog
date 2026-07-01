@@ -29,11 +29,9 @@ export default function Register() {
     setLoadingCaptcha(true)
     try {
       const res = await api.get('/auth/captcha') as any
-      if (res.code === 200) {
-        setCaptchaToken(res.data.token)
-        setCaptchaQuestion(res.data.question)
-        setCaptchaImage(res.data.image)
-      }
+      setCaptchaToken(res.token)
+      setCaptchaQuestion(res.question)
+      setCaptchaImage(res.image)
     } catch (err) {
       console.error('加载验证码失败', err)
     }
@@ -84,31 +82,19 @@ export default function Register() {
 
     setLoading(true)
     try {
-      const res = await api.post('/auth/register', {
+      await api.post('/auth/register', {
         email,
         password,
         nickname,
         captcha_token: captchaToken,
         captcha_answer: captchaAnswer
       }) as any
-      
-      if (res.code === 200) {
-        setSuccess(true)
-        setTimeout(() => navigate('/login'), 2000)
-      } else {
-        if (res.require_captcha) {
-          loadCaptcha()
-          setCaptchaAnswer('')
-        }
-        setError(res.detail || '注册失败，请稍后重试')
-      }
+      setSuccess(true)
+      setTimeout(() => navigate('/login'), 2000)
     } catch (err: any) {
-      const detail = err.response?.data?.detail || err.message
-      if (err.response?.data?.require_captcha) {
-        loadCaptcha()
-        setCaptchaAnswer('')
-      }
-      setError(detail || '注册失败，请稍后重试')
+      loadCaptcha()
+      setCaptchaAnswer('')
+      setError(err.message || '注册失败，请稍后重试')
     } finally {
       setLoading(false)
     }

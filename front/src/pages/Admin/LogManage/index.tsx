@@ -42,7 +42,7 @@ export default function LogManage() {
   const fetchStats = async () => {
     try {
       const res = await api.get('/logs/stats') as any
-      setStats(res.data)
+      setStats(res)
     } catch (error) {
       console.error('获取统计失败', error)
     }

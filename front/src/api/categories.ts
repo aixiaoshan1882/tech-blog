@@ -12,6 +12,15 @@ export interface CreateCategoryInput {
   parentId?: number
 }
 
+function toCategoryPayload(input: CreateCategoryInput) {
+  return {
+    name: input.name,
+    slug: input.slug,
+    description: input.description,
+    parent_id: input.parentId ?? 0,
+  }
+}
+
 function transformCategory(raw: any): Category {
   return {
     ...raw,
@@ -34,12 +43,12 @@ export async function getCategory(slugOrId: string): Promise<Category> {
 
 // 创建分类
 export async function createCategory(input: CreateCategoryInput): Promise<Category> {
-  return api.post('/categories', input)
+  return api.post('/categories', toCategoryPayload(input))
 }
 
 // 更新分类
 export async function updateCategory(id: number, input: CreateCategoryInput): Promise<Category> {
-  return api.put(`/categories/${id}`, input)
+  return api.put(`/categories/${id}`, toCategoryPayload(input))
 }
 
 // 删除分类

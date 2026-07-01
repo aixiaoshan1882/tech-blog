@@ -80,14 +80,14 @@ export function Comments({ postId }: CommentsProps) {
   const renderComment = (comment: any) => (
     <div key={comment.id} className="flex gap-3 py-4">
       <img
-        src={comment.author_avatar || comment.author?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${comment.author_name || comment.author?.nickname || 'Anonymous'}`}
-        alt={comment.author_name || comment.author?.nickname || '匿名用户'}
+        src={comment.author_avatar || comment.author?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${comment.nickname || comment.author_name || comment.author?.nickname || 'Anonymous'}`}
+        alt={comment.nickname || comment.author_name || comment.author?.nickname || '匿名用户'}
         className="w-10 h-10 rounded-full flex-shrink-0"
       />
       <div className="flex-1">
         <div className="flex items-center gap-2 mb-1">
           <span className="font-medium text-gray-900 dark:text-gray-100">
-            {comment.author_name || comment.author?.nickname || '匿名用户'}
+            {comment.nickname || comment.author_name || comment.author?.nickname || '匿名用户'}
           </span>
           <span className="text-sm text-gray-400">
             {dayjs(comment.created_at || comment.createdAt).format('YYYY-MM-DD HH:mm')}

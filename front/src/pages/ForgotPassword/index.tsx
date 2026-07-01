@@ -19,12 +19,8 @@ export default function ForgotPassword() {
     setLoading(true)
 
     try {
-      const res = await api.post('/auth/send-code', { email }) as any
-      if (res.code === 200) {
-        setMessage('✅ 验证码已发送到您的邮箱，请查收！')
-      } else {
-        setError(res.detail || '发送失败，请稍后重试')
-      }
+      await api.post('/auth/forgot-password', { email })
+      setMessage('✅ 如果邮箱已注册，将收到密码重置链接。')
     } catch (err: any) {
       setError(err.message || '发送失败，请稍后重试')
     } finally {
@@ -53,7 +49,7 @@ export default function ForgotPassword() {
               找回密码
             </h1>
             <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 mt-1 sm:mt-2">
-              输入您的邮箱地址，我们将发送验证码
+              输入您的邮箱地址，我们将发送密码重置链接
             </p>
           </div>
 
@@ -90,7 +86,7 @@ export default function ForgotPassword() {
               disabled={loading}
               className="w-full py-2.5 sm:py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 text-white rounded-xl font-medium transition-all shadow-lg text-sm sm:text-base"
             >
-              {loading ? '发送中...' : '发送验证码'}
+              {loading ? '发送中...' : '发送重置链接'}
             </button>
           </form>
 

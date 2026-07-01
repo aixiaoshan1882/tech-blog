@@ -23,6 +23,10 @@ export interface AuthResponse {
   user: User
 }
 
+export interface RegisterResponse {
+  is_admin: boolean
+}
+
 // 登录
 export async function login(input: LoginInput): Promise<AuthResponse> {
   const response = await api.post<AuthResponse>('/auth/login', input)
@@ -31,10 +35,8 @@ export async function login(input: LoginInput): Promise<AuthResponse> {
 }
 
 // 注册
-export async function register(input: RegisterInput): Promise<AuthResponse> {
-  const response = await api.post<AuthResponse>('/auth/register', input)
-  authStore.setAuth(response.token, response.user)
-  return response
+export async function register(input: RegisterInput): Promise<RegisterResponse> {
+  return api.post<RegisterResponse>('/auth/register', input)
 }
 
 // 登出
@@ -55,12 +57,12 @@ export async function getCurrentUser(): Promise<User> {
 
 // 发送验证码
 export async function sendVerifyCode(email: string): Promise<void> {
-  return api.post('/auth/send-code', { email })
+  return api.post('/auth/forgot-password', { email })
 }
 
 // 重置密码
 export async function resetPassword(token: string, password: string): Promise<void> {
-  return api.post('/auth/reset-password', { token, password })
+  return api.post('/auth/reset-password', { token, new_password: password })
 }
 
 // 更新个人资料
@@ -75,5 +77,8 @@ export async function updateProfile(data: { nickname?: string; avatar?: string }
 
 // 修改密码
 export async function changePassword(oldPassword: string, newPassword: string): Promise<void> {
-  return api.post('/auth/change-password', { oldPassword, newPassword })
+  return api.post('/auth/change-password', {
+    old_password: oldPassword,
+    new_password: newPassword,
+  })
 }

@@ -29,6 +29,17 @@ export interface PostFilters {
   keyword?: string
 }
 
+interface PostPayload {
+  title?: string
+  slug?: string
+  content?: string
+  excerpt?: string
+  cover?: string
+  is_public?: number
+  category_id?: number
+  tag_ids?: number[]
+}
+
 // Worker 返回的原始数据（扁平结构）
 interface RawPost {
   id: number
@@ -47,6 +58,26 @@ interface RawPost {
   created_at: string
   updated_at: string
   tags?: { id: number; name: string; slug: string }[]
+}
+
+function toPostPayload(input: UpdatePostInput): PostPayload {
+  const payload: PostPayload = {
+    title: input.title,
+    slug: input.slug,
+    content: input.content,
+    excerpt: input.excerpt,
+    cover: input.coverImage,
+    category_id: input.categoryId,
+    tag_ids: input.tagIds,
+  }
+
+  if (input.status) {
+    payload.is_public = input.status === 'published' ? 1 : 0
+  }
+
+  return Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined)
+  ) as PostPayload
 }
 
 // 转换 Worker 返回的扁平数据为嵌套结构
@@ -117,12 +148,12 @@ export async function getPost(slugOrId: string): Promise<Post> {
 
 // 创建文章
 export async function createPost(input: CreatePostInput): Promise<Post> {
-  return api.post('/posts', input)
+  return api.post('/posts', toPostPayload(input))
 }
 
 // 更新文章
 export async function updatePost(id: number, input: UpdatePostInput): Promise<Post> {
-  return api.put(`/posts/${id}`, input)
+  return api.put(`/posts/${id}`, toPostPayload(input))
 }
 
 // 删除文章

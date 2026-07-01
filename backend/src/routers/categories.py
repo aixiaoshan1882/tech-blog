@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Request, HTTPException, Query
 from ..database import db
 from .auth import require_admin
+from ..utils.sanitize import sanitize_html
 
 router = APIRouter(prefix="/categories", tags=["分类"])
 
@@ -66,10 +67,15 @@ async def create_category(request: Request) -> dict:
     body = await request.json()
     name = body.get("name")
     slug = body.get("slug")
+    description = body.get("description")
     parent_id = body.get("parent_id", 0)
 
     if not name or not slug:
         raise HTTPException(status_code=400, detail="缺少必要参数")
+
+    name = sanitize_html(str(name).strip())[:100]
+    slug = sanitize_html(str(slug).strip())[:100]
+    description = sanitize_html(str(description).strip())[:500] if description else None
 
     # 检查 slug 唯一
     existing = await db.first("SELECT id FROM categories WHERE slug = ?", [slug])
@@ -77,11 +83,55 @@ async def create_category(request: Request) -> dict:
         raise HTTPException(status_code=400, detail="slug 已存在")
 
     result = await db.execute(
-        "INSERT INTO categories (name, slug, parent_id) VALUES (?, ?, ?)",
-        [name, slug, parent_id],
+        "INSERT INTO categories (name, slug, description, parent_id) VALUES (?, ?, ?, ?)",
+        [name, slug, description, parent_id],
     )
 
     return {"code": 200, "msg": "创建成功", "data": {"id": result.get("last_row_id")}}
+
+
+@router.put("/{id}")
+async def update_category(request: Request, id: int) -> dict:
+    """更新分类"""
+    await require_admin(request)
+
+    body = await request.json()
+    name = body.get("name")
+    slug = body.get("slug")
+    description = body.get("description")
+    parent_id = body.get("parent_id", 0)
+
+    if not name or not slug:
+        raise HTTPException(status_code=400, detail="缺少必要参数")
+
+    if parent_id == id:
+        raise HTTPException(status_code=400, detail="父分类不能是自身")
+
+    existing_category = await db.first("SELECT id FROM categories WHERE id = ?", [id])
+    if not existing_category:
+        raise HTTPException(status_code=404, detail="分类不存在")
+
+    name = sanitize_html(str(name).strip())[:100]
+    slug = sanitize_html(str(slug).strip())[:100]
+    description = sanitize_html(str(description).strip())[:500] if description else None
+
+    existing_slug = await db.first(
+        "SELECT id FROM categories WHERE slug = ? AND id != ?",
+        [slug, id],
+    )
+    if existing_slug:
+        raise HTTPException(status_code=400, detail="slug 已存在")
+
+    await db.execute(
+        """
+        UPDATE categories
+        SET name = ?, slug = ?, description = ?, parent_id = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+        """,
+        [name, slug, description, parent_id, id],
+    )
+
+    return {"code": 200, "msg": "更新成功"}
 
 
 @router.delete("/{id}")

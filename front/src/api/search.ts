@@ -4,12 +4,30 @@
 
 import { api } from './client'
 import type { Stats, SearchResult } from '@/types'
+import { transformPosts } from '@/types'
 
 // 搜索文章
-export async function search(q: string, _page: number = 1, _pageSize: number = 10): Promise<SearchResult> {
-  return api.get('/search', {
+export async function search(q: string, page: number = 1, pageSize: number = 10): Promise<SearchResult> {
+  const result = await api.get<any>('/search', {
     q,
+    page: String(page),
+    limit: String(pageSize),
   })
+
+  if (Array.isArray(result)) {
+    return {
+      items: transformPosts(result),
+      total: result.length,
+      page,
+      limit: pageSize,
+      hasMore: false,
+    }
+  }
+
+  return {
+    ...result,
+    items: transformPosts(result.items || []),
+  }
 }
 
 // 获取统计数据

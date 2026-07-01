@@ -59,7 +59,7 @@ export default function CommentManage() {
                   <p className="text-gray-900 dark:text-gray-100 line-clamp-2">{comment.content}</p>
                 </td>
                 <td className="px-6 py-4 text-gray-500 dark:text-gray-400 text-sm">
-                  {comment.post?.title || '文章已删除'}
+                  {comment.post_title || comment.post?.title || '文章已删除'}
                 </td>
                 <td className="px-6 py-4 text-gray-500 dark:text-gray-400">
                   {comment.nickname || comment.author?.nickname || '匿名'}

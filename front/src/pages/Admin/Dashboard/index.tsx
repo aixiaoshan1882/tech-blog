@@ -44,9 +44,9 @@ export default function Dashboard() {
         api.get('/users/stats/overview') as any,
         api.get('/posts?limit=5') as any,
       ])
-      setStats(statsRes.data.data)
-      setUserStats(userRes.data.data)
-      setRecentPosts(postsRes.data.data.items)
+      setStats(statsRes)
+      setUserStats(userRes)
+      setRecentPosts(postsRes.items || [])
     } catch (error) {
       console.error('获取数据失败', error)
     }

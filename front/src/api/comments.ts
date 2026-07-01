@@ -22,7 +22,7 @@ export interface CommentFilters {
 export async function getComments(filters: CommentFilters = {}): Promise<PaginatedResponse<Comment>> {
   return api.get('/comments', {
     page: String(filters.page || 1),
-    pageSize: String(filters.pageSize || 20),
+    page_size: String(filters.pageSize || 20),
     ...(filters.postId && { postId: String(filters.postId) }),
     ...(filters.status && { status: filters.status }),
   })
@@ -30,7 +30,8 @@ export async function getComments(filters: CommentFilters = {}): Promise<Paginat
 
 // 获取文章的评论
 export async function getPostComments(postId: number): Promise<Comment[]> {
-  return api.get(`/posts/${postId}/comments`)
+  const result = await getComments({ postId, pageSize: 100 })
+  return result.items
 }
 
 // 创建评论

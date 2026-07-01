@@ -14,6 +14,7 @@ interface TopPost {
   slug: string
   view_count: number
   like_count: number
+  comment_count?: number
 }
 
 export default function Analytics() {
@@ -37,10 +38,10 @@ export default function Analytics() {
         api.get('/posts/top?period=views') as any,
         api.get('/posts/top?period=likes') as any,
       ])
-      setDailyStats(statsRes.data.daily || [])
-      setTopPosts(topRes.data.posts || [])
-      setTopViewed(viewRes.data.posts || [])
-      setTopLiked(likeRes.data.posts || [])
+      setDailyStats(statsRes.daily || [])
+      setTopPosts(topRes.posts || [])
+      setTopViewed(viewRes.posts || [])
+      setTopLiked(likeRes.posts || [])
     } catch (error) {
       console.error('获取统计数据失败', error)
     }
@@ -191,7 +192,7 @@ export default function Analytics() {
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{post.title}</div>
-                      <div className="text-xs text-gray-500">{post.like_count} 评论</div>
+                      <div className="text-xs text-gray-500">{post.comment_count || 0} 评论</div>
                     </div>
                   </div>
                 ))}

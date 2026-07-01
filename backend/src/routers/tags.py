@@ -1,6 +1,8 @@
 """标签路由"""
 from fastapi import APIRouter, Request, HTTPException
 from ..database import db
+from .auth import require_admin
+from ..utils.sanitize import sanitize_html
 
 router = APIRouter(prefix="/tags", tags=["标签"])
 
@@ -24,9 +26,7 @@ async def get_tags() -> dict:
 @router.post("")
 async def create_tag(request: Request) -> dict:
     """创建标签"""
-    user_id = getattr(request.state, "user_id", None)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="未登录")
+    await require_admin(request)
 
     body = await request.json()
     name = body.get("name")
@@ -34,6 +34,9 @@ async def create_tag(request: Request) -> dict:
 
     if not name or not slug:
         raise HTTPException(status_code=400, detail="缺少必要参数")
+
+    name = sanitize_html(str(name).strip())[:100]
+    slug = sanitize_html(str(slug).strip())[:100]
 
     # 检查 name/slug 唯一
     existing = await db.first(
@@ -48,6 +51,51 @@ async def create_tag(request: Request) -> dict:
     )
 
     return {"code": 200, "msg": "创建成功", "data": {"id": result.get("last_row_id")}}
+
+
+@router.put("/{id}")
+async def update_tag(request: Request, id: int) -> dict:
+    """更新标签"""
+    await require_admin(request)
+
+    body = await request.json()
+    name = body.get("name")
+    slug = body.get("slug")
+
+    if not name or not slug:
+        raise HTTPException(status_code=400, detail="缺少必要参数")
+
+    existing_tag = await db.first("SELECT id FROM tags WHERE id = ?", [id])
+    if not existing_tag:
+        raise HTTPException(status_code=404, detail="标签不存在")
+
+    name = sanitize_html(str(name).strip())[:100]
+    slug = sanitize_html(str(slug).strip())[:100]
+
+    existing = await db.first(
+        "SELECT id FROM tags WHERE (name = ? OR slug = ?) AND id != ?",
+        [name, slug, id],
+    )
+    if existing:
+        raise HTTPException(status_code=400, detail="名称或slug已存在")
+
+    await db.execute(
+        "UPDATE tags SET name = ?, slug = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+        [name, slug, id],
+    )
+
+    return {"code": 200, "msg": "更新成功"}
+
+
+@router.delete("/{id}")
+async def delete_tag(request: Request, id: int) -> dict:
+    """删除标签"""
+    await require_admin(request)
+
+    await db.execute("DELETE FROM post_tags WHERE tag_id = ?", [id])
+    await db.execute("DELETE FROM tags WHERE id = ?", [id])
+
+    return {"code": 200, "msg": "删除成功"}
 
 
 @router.get("/hot")

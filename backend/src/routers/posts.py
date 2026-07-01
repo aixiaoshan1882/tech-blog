@@ -19,12 +19,13 @@ async def get_posts(
     categoryId: Optional[int] = None,
     tag: Optional[str] = None,
     tagId: Optional[int] = None,
+    status: Optional[str] = None,
 ) -> dict:
     """获取文章列表 (带缓存)"""
     # 生成缓存 key (基于查询参数)
     cache_key = (
         f"posts:page:{page}:limit:{limit}:cat:{category or categoryId or ''}:"
-        f"tag:{tag or tagId or ''}"
+        f"tag:{tag or tagId or ''}:status:{status or ''}"
     )
     
     # 尝试从缓存获取 (仅对非管理员公开列表)
@@ -50,6 +51,10 @@ async def get_posts(
     # 非管理员只能看公开文章
     if not is_admin:
         where_clauses.append("p.is_public = 1")
+    elif status == "published":
+        where_clauses.append("p.is_public = 1")
+    elif status == "draft":
+        where_clauses.append("p.is_public = 0")
 
     if category:
         where_clauses.append(
@@ -270,8 +275,8 @@ async def get_post(request: Request, slug: str) -> dict:
     if slug == "rankings":
         return await get_post_rankings(request)
     elif slug == "top":
-        # get_top_posts 需要 period 参数
-        return await get_top_posts(period="views")
+        period = request.query_params.get("period", "views")
+        return await get_top_posts(period=period)
     elif slug == "trash":
         raise HTTPException(status_code=404, detail="请使用 /api/posts/trash/list")
     elif slug == "scheduled":
@@ -287,18 +292,25 @@ async def get_post(request: Request, slug: str) -> dict:
         user = await get_user_by_id(user_id)
         is_admin = user and user.get("role") == "admin"
     
+    if slug.isdigit():
+        where_sql = "p.id = ?"
+        params = [int(slug)]
+    else:
+        where_sql = "p.slug = ?"
+        params = [slug]
+
     # 查询文章（包含作者信息）
     post = await db.first(
-        """
+        f"""
         SELECT p.*, 
                c.name as category_name, c.slug as category_slug,
                u.nickname as author_nickname, u.avatar as author_avatar, u.email as author_email
         FROM posts p
         LEFT JOIN categories c ON c.id = p.category_id
         LEFT JOIN users u ON u.id = p.user_id
-        WHERE p.slug = ?
+        WHERE {where_sql}
         """,
-        [slug],
+        params,
     )
 
     if not post:
