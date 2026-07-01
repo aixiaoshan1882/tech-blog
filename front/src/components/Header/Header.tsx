@@ -2,7 +2,7 @@
  * Header 组件 - 移动端优化版
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useSyncExternalStore } from 'react'
 import { authStore } from '@/store/authStore'
@@ -36,6 +36,7 @@ export default function Header() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [scrolled, setScrolled] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   // 滚动时添加阴影
   useEffect(() => {
@@ -49,6 +50,22 @@ export default function Header() {
     setMenuOpen(false)
     setSearchOpen(false)
   }, [location.pathname])
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        if (window.matchMedia('(min-width: 640px)').matches) {
+          searchInputRef.current?.focus()
+        } else {
+          setSearchOpen(true)
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleShortcut)
+    return () => window.removeEventListener('keydown', handleShortcut)
+  }, [])
 
   // 防止背景滚动
   useEffect(() => {
@@ -110,6 +127,7 @@ export default function Header() {
               {/* Mobile Search Button */}
               <button
                 onClick={() => setSearchOpen(true)}
+                aria-label="打开搜索"
                 className="sm:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 <span className="text-lg">🔍</span>
@@ -119,6 +137,7 @@ export default function Header() {
               <form onSubmit={handleSearch} className="hidden sm:block">
                 <div className="relative">
                   <input
+                    ref={searchInputRef}
                     type="text"
                     value={searchQuery}
                     onChange={e => setSearchQuery(e.target.value)}
@@ -135,6 +154,7 @@ export default function Header() {
               {/* Theme Toggle */}
               <button
                 onClick={() => themeStore.toggle()}
+                aria-label="切换主题"
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 title={`主题: ${theme === 'dark' ? '深色' : theme === 'light' ? '浅色' : '自动'}`}
               >
@@ -216,6 +236,8 @@ export default function Header() {
               {/* Mobile Menu Button */}
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
+                aria-label={menuOpen ? '关闭菜单' : '打开菜单'}
+                aria-expanded={menuOpen}
                 className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 <span className="text-xl">{menuOpen ? '✕' : '☰'}</span>

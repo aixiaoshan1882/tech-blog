@@ -12,7 +12,7 @@ class Migration_001_InitialSchema(Migration):
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 email TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
+                password TEXT NOT NULL,
                 nickname TEXT NOT NULL,
                 avatar TEXT,
                 bio TEXT,
@@ -110,6 +110,7 @@ class Migration_001_InitialSchema(Migration):
                 title TEXT NOT NULL,
                 content TEXT,
                 is_read INTEGER DEFAULT 0,
+                related_id INTEGER,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )

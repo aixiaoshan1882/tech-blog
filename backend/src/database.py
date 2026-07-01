@@ -1,6 +1,5 @@
 """数据库连接模块"""
 import os
-import json
 import sqlite3
 from typing import Optional, List, Dict, Any
 from contextlib import contextmanager
@@ -106,6 +105,183 @@ class Database:
                 seed = f.read()
                 with self._connect() as conn:
                     conn.executescript(seed)
+
+        self.ensure_schema()
+
+    def ensure_schema(self):
+        """补齐本地 SQLite 运行所需的增强字段和表。"""
+        if self._is_d1:
+            return
+
+        schema_path = os.path.join(
+            os.path.dirname(__file__), "..", "..", "database", "schema.sql"
+        )
+
+        with self._connect() as conn:
+            cursor = conn.cursor()
+            if os.path.exists(schema_path):
+                with open(schema_path, "r") as f:
+                    conn.executescript(f.read())
+
+            def columns(table: str) -> set[str]:
+                cursor.execute(f"PRAGMA table_info({table})")
+                return {row["name"] for row in cursor.fetchall()}
+
+            def add_column(table: str, name: str, definition: str) -> None:
+                if name not in columns(table):
+                    cursor.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+
+            add_column("users", "password", "TEXT")
+            if "password_hash" in columns("users"):
+                cursor.execute("UPDATE users SET password = COALESCE(password, password_hash)")
+            add_column("users", "role", "TEXT DEFAULT 'reader'")
+            add_column("users", "avatar", "TEXT DEFAULT NULL")
+            add_column("users", "bio", "TEXT DEFAULT NULL")
+            add_column("users", "updated_at", "DATETIME")
+            cursor.execute("UPDATE users SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)")
+
+            add_column("categories", "description", "TEXT")
+            add_column("categories", "sort_order", "INTEGER DEFAULT 0")
+            add_column("categories", "updated_at", "DATETIME")
+            cursor.execute(
+                "UPDATE categories SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)"
+            )
+
+            add_column("tags", "color", "TEXT")
+            add_column("tags", "created_at", "DATETIME")
+            add_column("tags", "updated_at", "DATETIME")
+            cursor.execute("UPDATE tags SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP)")
+            cursor.execute("UPDATE tags SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)")
+
+            add_column("posts", "user_id", "INTEGER")
+            add_column("posts", "like_count", "INTEGER DEFAULT 0")
+            add_column("posts", "deleted_at", "DATETIME DEFAULT NULL")
+            add_column("posts", "scheduled_at", "DATETIME DEFAULT NULL")
+
+            add_column("comments", "like_count", "INTEGER DEFAULT 0")
+            add_column("comments", "is_approved", "INTEGER DEFAULT 1")
+            add_column("comments", "updated_at", "DATETIME")
+            cursor.execute(
+                "UPDATE comments SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP)"
+            )
+
+            cursor.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS notifications (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    type TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    content TEXT,
+                    is_read INTEGER DEFAULT 0,
+                    related_id INTEGER,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS user_favorites (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    post_id INTEGER NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(user_id, post_id),
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (post_id) REFERENCES posts(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS user_likes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    post_id INTEGER,
+                    comment_id INTEGER,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (post_id) REFERENCES posts(id),
+                    FOREIGN KEY (comment_id) REFERENCES comments(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS comment_likes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    comment_id INTEGER NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(user_id, comment_id),
+                    FOREIGN KEY (user_id) REFERENCES users(id),
+                    FOREIGN KEY (comment_id) REFERENCES comments(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS post_stats (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    post_id INTEGER UNIQUE NOT NULL,
+                    view_count INTEGER DEFAULT 0,
+                    like_count INTEGER DEFAULT 0,
+                    comment_count INTEGER DEFAULT 0,
+                    favorite_count INTEGER DEFAULT 0,
+                    last_viewed_at DATETIME,
+                    FOREIGN KEY (post_id) REFERENCES posts(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS operation_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER,
+                    action TEXT NOT NULL,
+                    resource TEXT,
+                    resource_id INTEGER,
+                    details TEXT,
+                    ip_address TEXT,
+                    user_agent TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS announcements (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    type TEXT DEFAULT 'info',
+                    priority INTEGER DEFAULT 0,
+                    is_pinned INTEGER DEFAULT 0,
+                    is_active INTEGER DEFAULT 1,
+                    start_time DATETIME,
+                    end_time DATETIME,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    token TEXT UNIQUE NOT NULL,
+                    expires_at DATETIME NOT NULL,
+                    used INTEGER DEFAULT 0,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS api_keys (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    key TEXT UNIQUE NOT NULL,
+                    secret_hash TEXT NOT NULL,
+                    is_active INTEGER DEFAULT 1,
+                    last_used_at DATETIME,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    expires_at DATETIME
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id);
+                CREATE INDEX IF NOT EXISTS idx_favorites_user ON user_favorites(user_id);
+                CREATE INDEX IF NOT EXISTS idx_likes_user ON user_likes(user_id);
+                CREATE INDEX IF NOT EXISTS idx_logs_user ON operation_logs(user_id);
+                CREATE INDEX IF NOT EXISTS idx_logs_action ON operation_logs(action);
+                CREATE INDEX IF NOT EXISTS idx_announcements_active ON announcements(is_active);
+                """
+            )
+
+            add_column("notifications", "related_id", "INTEGER")
+            add_column("password_reset_tokens", "used", "INTEGER DEFAULT 0")
+
+            conn.commit()
 
 
 # 全局数据库实例

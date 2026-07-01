@@ -92,16 +92,23 @@ function createRequester(config: ApiConfig) {
       throw new ApiError('请求重复，已忽略', -2, 0)
     }
     
-    // 创建 AbortController
-    const controller = new AbortController()
-    if (options.deduplicate) {
-      pendingRequests.set(requestKey, controller)
-    }
-    
     let lastError: ApiError
 
-    for (let attempt = 0; attempt < config.retries; attempt++) {
-      try {
+    try {
+      for (let attempt = 0; attempt < config.retries; attempt++) {
+        const controller = new AbortController()
+        let timeoutId: ReturnType<typeof setTimeout> | undefined
+        let timedOut = false
+        if (options.deduplicate) {
+          pendingRequests.set(requestKey, controller)
+        }
+
+        try {
+          timeoutId = setTimeout(() => {
+            timedOut = true
+            controller.abort()
+          }, config.timeout)
+
         // 安全处理 URL 构建
         const base = config.baseURL.endsWith('/') ? config.baseURL : config.baseURL + '/'
         const cleanPath = sanitizeUrlPart(path.startsWith('/') ? path.slice(1) : path)
@@ -132,11 +139,26 @@ function createRequester(config: ApiConfig) {
         })
 
         // 解析响应
-        let data: ApiResponse<T>
+        let data: ApiResponse<T> | { detail?: string; msg?: string }
         try {
           data = await response.json()
         } catch {
           throw new ApiError('响应解析失败', -1, response.status)
+        }
+
+        if (!response.ok) {
+          const errorData = data as Partial<ApiResponse<T>> & { detail?: string }
+          const message = errorData.detail || errorData.msg || response.statusText || '请求失败'
+          if (response.status === 401) {
+            authStore.logout()
+            window.location.href = '/login'
+            throw new ApiError('登录已过期', -1, 401)
+          }
+          throw new ApiError(message, -1, response.status)
+        }
+
+        if (!('code' in data)) {
+          return data as T
         }
 
         // 处理业务错误
@@ -168,7 +190,7 @@ function createRequester(config: ApiConfig) {
       } catch (error) {
         // 用户取消请求
         if (error instanceof Error && error.name === 'AbortError') {
-          throw new ApiError('请求已取消', -2, 0)
+          throw new ApiError(timedOut ? '请求超时，请稍后重试' : '请求已取消', -2, timedOut ? 408 : 0)
         }
 
         if (error instanceof ApiError) {
@@ -198,10 +220,17 @@ function createRequester(config: ApiConfig) {
         }
         
         throw apiError
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId)
       }
     }
 
     throw lastError!
+    } finally {
+      if (options.deduplicate) {
+        pendingRequests.delete(requestKey)
+      }
+    }
   }
 
   return {

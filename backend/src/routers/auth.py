@@ -27,9 +27,9 @@ def get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def get_user_by_id(user_id: int) -> Optional[dict]:
+async def get_user_by_id(user_id: int) -> Optional[dict]:
     """根据 ID 获取用户"""
-    return db.first("SELECT * FROM users WHERE id = ?", [user_id])
+    return await db.first("SELECT * FROM users WHERE id = ?", [user_id])
 
 
 async def require_admin(request: Request) -> dict:
@@ -287,6 +287,7 @@ async def forgot_password(request: Request) -> dict:
     
     # 检查用户是否存在
     user = await db.first("SELECT id FROM users WHERE email = ?", [email])
+    reset_token = None
     if user:
         # 生成重置 token (32字节 = 64字符)
         reset_token = secrets.token_urlsafe(32)
@@ -312,7 +313,7 @@ async def forgot_password(request: Request) -> dict:
         "code": 200,
         "msg": "如果邮箱已注册，将收到密码重置链接",
         # 开发环境返回 token，方便测试
-        "data": {"dev_token": reset_token} if not user else None
+        "data": {"dev_token": reset_token} if reset_token else None
     }
 
 

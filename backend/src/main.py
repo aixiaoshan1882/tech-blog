@@ -33,6 +33,8 @@ async def lifespan(app: FastAPI):
     """Ensure local development has a usable SQLite database."""
     if not os.path.exists(config.DB_PATH):
         db.init_database()
+    else:
+        db.ensure_schema()
     yield
 
 

@@ -101,6 +101,7 @@ class Migration_002_EnhancedFeatures(Migration):
                 user_id INTEGER NOT NULL,
                 token TEXT UNIQUE NOT NULL,
                 expires_at DATETIME NOT NULL,
+                used INTEGER DEFAULT 0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(id)
             )

@@ -2,7 +2,7 @@
  * useStore Hook - 将 Store 连接到 React
  */
 
-import { useState, useEffect, useCallback, useSyncExternalStore } from 'react'
+import { useState, useEffect, useCallback, useRef, useSyncExternalStore } from 'react'
 import type { Store } from '@/store/createStore'
 
 /**
@@ -93,24 +93,30 @@ export function usePagination<T>(
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [hasMore, setHasMore] = useState(true)
+  const requestIdRef = useRef(0)
 
   const load = useCallback(async (pageNum: number) => {
+    const requestId = ++requestIdRef.current
     setLoading(true)
     setError(null)
     try {
       const result = await fetchFn(pageNum, pageSize)
+      if (requestId !== requestIdRef.current) return
       setItems(result.items)
       setTotal(result.total)
+      setPage(pageNum)
       setHasMore(pageNum * pageSize < result.total)
     } catch (e) {
+      if (requestId !== requestIdRef.current) return
       setError(e instanceof Error ? e : new Error(String(e)))
     } finally {
-      setLoading(false)
+      if (requestId === requestIdRef.current) {
+        setLoading(false)
+      }
     }
   }, [fetchFn, pageSize])
 
   const goToPage = useCallback((pageNum: number) => {
-    setPage(pageNum)
     load(pageNum)
   }, [load])
 

@@ -78,6 +78,11 @@ export default function Search() {
     setShowHistory(false)
   }
 
+  const searchHistory = safeJsonParse<string[]>(
+    localStorage.getItem('searchHistory'),
+    []
+  ).filter(Boolean).slice(0, MAX_HISTORY_ITEMS)
+
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       {/* Search Header */}
@@ -114,14 +119,14 @@ export default function Search() {
         {/* Search History & Suggestions */}
         {showHistory && !query && (
           <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 p-3 sm:p-4 z-20">
-            {localStorage.getItem('searchHistory') && (
+            {searchHistory.length > 0 && (
               <div className="mb-3 sm:mb-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs sm:text-sm font-medium text-gray-500">搜索历史</span>
                   <button onClick={clearHistory} className="text-xs text-gray-400 hover:text-red-500">清除</button>
                 </div>
                 <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                  {JSON.parse(localStorage.getItem('searchHistory') || '[]').map((h: string, i: number) => (
+                  {searchHistory.map((h: string, i: number) => (
                     <button
                       key={i}
                       onClick={() => handleKeywordClick(h)}
