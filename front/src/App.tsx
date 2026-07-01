@@ -28,7 +28,7 @@ import Settings from '@/pages/Admin/Settings'
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <Routes>
         {/* 前台 */}
         <Route path="/" element={<Layout />}>
